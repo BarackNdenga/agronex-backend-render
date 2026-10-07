@@ -12,7 +12,10 @@ build/
 .env.local
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
+.dev.vars
+.dev.vars.*
 
 # IDE and editor files
 .vscode/
@@ -115,3 +118,5 @@ client/public/__manus__/version.json
 
 # Manus project metadata
 .manus/
+.wrangler/
+wrangler.local.toml

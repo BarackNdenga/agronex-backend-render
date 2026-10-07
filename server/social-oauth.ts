@@ -8,6 +8,7 @@ import { sdk } from "./_core/sdk";
 import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const";
 import { ENV } from "./_core/env";
 import { resolveAgronexOAuthRole } from "./admin-owner-config";
+import { encodeBase64Url } from "./admin-invitations";
 
 export const SOCIAL_PROVIDERS = ["google", "tiktok"] as const;
 export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
@@ -89,24 +90,30 @@ function stateCookieName(provider: SocialProvider) {
 function createStateCookieValue(provider: SocialProvider): OAuthState {
   return {
     provider,
-    state: randomBytes(32).toString("base64url"),
-    nonce: randomBytes(32).toString("base64url"),
+    state: encodeBase64Url(randomBytes(32)),
+    nonce: encodeBase64Url(randomBytes(32)),
     issuedAt: Date.now(),
   };
 }
 
 function encodeStateCookie(state: OAuthState) {
-  return Buffer.from(JSON.stringify(state)).toString("base64url");
+  return encodeBase64Url(new TextEncoder().encode(JSON.stringify(state)));
+}
+
+function decodeBase64Url(value: string) {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const binary = atob(base64);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
 export function validateSocialStateCookie(provider: SocialProvider, cookieValue: string | undefined, returnedState: string | undefined, now = Date.now()): OAuthState | null {
   if (!cookieValue || !returnedState || cookieValue.length > 512 || returnedState.length > 256) return null;
   try {
-    const decoded = JSON.parse(Buffer.from(cookieValue, "base64url").toString("utf8")) as OAuthState;
+    const decoded = JSON.parse(new TextDecoder().decode(decodeBase64Url(cookieValue))) as OAuthState;
     if (decoded.provider !== provider || !decoded.state || !decoded.nonce || !Number.isSafeInteger(decoded.issuedAt)) return null;
     if (now - decoded.issuedAt < 0 || now - decoded.issuedAt > 10 * 60 * 1000) return null;
-    const expected = Buffer.from(decoded.state);
-    const actual = Buffer.from(returnedState);
+    const expected = new TextEncoder().encode(decoded.state);
+    const actual = new TextEncoder().encode(returnedState);
     if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
     return decoded;
   } catch {

@@ -16,8 +16,13 @@ export function normalizeInvitationEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+export function encodeBase64Url(bytes: Uint8Array) {
+  const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
 export function createAdminInvitationToken() {
-  const token = randomBytes(32).toString("base64url");
+  const token = encodeBase64Url(randomBytes(32));
   const tokenHash = createHash("sha256").update(token).digest("hex");
   return { token, tokenHash };
 }

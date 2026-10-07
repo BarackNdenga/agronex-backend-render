@@ -11,7 +11,7 @@ import {
   agronexSocialSettings,
   agronexProfiles,
   users,
-} from "../drizzle/schema";
+} from "../drizzle/schema.d1";
 import { getDb } from "./db";
 
 const requireDb = async () => {
@@ -225,7 +225,9 @@ export async function followSocialUser(userId: number, targetId: number) {
   const [existing] = await db.select().from(agronexFollows).where(and(eq(agronexFollows.followerId, userId), eq(agronexFollows.followingId, targetId))).limit(1);
   if (existing) await db.delete(agronexFollows).where(and(eq(agronexFollows.followerId, userId), eq(agronexFollows.followingId, targetId)));
   else {
-    await db.insert(agronexFollows).values({ followerId: userId, followingId: targetId, createdAt: Date.now() }).onDuplicateKeyUpdate({ set: { createdAt: Date.now() } });
+    const created = await db.insert(agronexFollows).values({ followerId: userId, followingId: targetId, createdAt: Date.now() })
+      .onConflictDoNothing().returning({ followerId: agronexFollows.followerId });
+    if (!created.length) return { following: true };
     await addNotification(db, targetId, userId, "follow", "a commencé à vous suivre.");
   }
   return { following: !existing };
@@ -306,8 +308,9 @@ export async function toggleSocialPost(userId: number, postId: string, action: "
   const [existing] = await db.select().from(table).where(and(eq(table.postId, postId), eq(table.userId, userId))).limit(1);
   if (existing) await db.delete(table).where(and(eq(table.postId, postId), eq(table.userId, userId)));
   else {
-    await db.insert(table).values({ postId, userId, createdAt: Date.now() }).onDuplicateKeyUpdate({ set: { createdAt: Date.now() } });
-    if (action === "like") await addNotification(db, post.authorId, userId, "like", "a aimé votre publication.", postId);
+    const created = await db.insert(table).values({ postId, userId, createdAt: Date.now() })
+      .onConflictDoNothing().returning({ postId: table.postId });
+    if (action === "like" && created.length) await addNotification(db, post.authorId, userId, "like", "a aimé votre publication.", postId);
   }
   return { active: !existing };
 }
@@ -338,7 +341,8 @@ export async function listSavedSocialPosts(userId: number) {
 export async function updateSocialSettings(userId: number, input: { privateProfile: boolean; allowConnectionRequests: boolean }) {
   const { db } = await requireProfile(userId);
   const now = Date.now();
-  await db.insert(agronexSocialSettings).values({ userId, ...input, updatedAt: now }).onDuplicateKeyUpdate({ set: { ...input, updatedAt: now } });
+  await db.insert(agronexSocialSettings).values({ userId, ...input, updatedAt: now })
+    .onConflictDoUpdate({ target: agronexSocialSettings.userId, set: { ...input, updatedAt: now } });
   return { ...input };
 }
 

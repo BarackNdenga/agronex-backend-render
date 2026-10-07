@@ -1,0 +1,12 @@
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -26,8 +26,4 @@
+         "coverage-open": "open coverage/lcov-report/index.html",
+         "test": "mocha --reporter spec --grep ."
+     },
+-    "browser": {
+-        "./lib/extend-node": false,
+-        "./lib/streams": false
+-    },
+     "devDependencies": {

@@ -1,5 +1,9 @@
+/// <reference types="@cloudflare/workers-types" />
 import { and, asc, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/d1";
+import { getRuntimeBinding } from "./_core/runtime-bindings";
+import { runD1Batch } from "./_core/d1";
+import * as d1Schema from "../drizzle/schema.d1";
 import {
   AgronexMessage,
   AgronexOrder,
@@ -11,19 +15,14 @@ import {
   agronexPosts,
   agronexProfiles,
   users,
-} from "../drizzle/schema";
+} from "../drizzle/schema.d1";
 import { ENV } from "./_core/env";
 import { ADMIN_INVITATION_TTL_MS, AGRONEX_ADMIN_LIMIT, AdminInvitationError, assertAdminInvitationClaim, assertAdminSeatAvailable, createAdminInvitationToken, hashAdminInvitationToken, normalizeInvitationEmail } from "./admin-invitations";
 import { randomUUID } from "node:crypto";
 
-let _db: ReturnType<typeof drizzle> | null = null;
-
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try { _db = drizzle(process.env.DATABASE_URL); }
-    catch (error) { console.warn("[Database] Failed to connect:", error); _db = null; }
-  }
-  return _db;
+  const binding = getRuntimeBinding<D1Database>("DB");
+  return binding ? drizzle(binding, { schema: d1Schema }) : null;
 }
 
 function requireDb() {
@@ -38,7 +37,7 @@ export async function upsertUser(user: InsertUser, options: { authenticatedRole?
   const db = await getDb();
   if (!db) { console.warn("[Database] Cannot upsert user: database not available"); return; }
   const values: InsertUser = { openId: user.openId };
-  const updateSet: Record<string, unknown> = {};
+  const updateSet: Partial<InsertUser> = {};
   const textFields = ["name", "email", "loginMethod"] as const;
   for (const field of textFields) {
     if (user[field] !== undefined) { values[field] = user[field] ?? null; updateSet[field] = user[field] ?? null; }
@@ -50,7 +49,7 @@ export async function upsertUser(user: InsertUser, options: { authenticatedRole?
   }
   if (!values.lastSignedIn) values.lastSignedIn = new Date();
   if (!Object.keys(updateSet).length) updateSet.lastSignedIn = new Date();
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  await db.insert(users).values(values).onConflictDoUpdate({ target: users.openId, set: updateSet });
 }
 
 export async function getUserByOpenId(openId: string) {
@@ -70,7 +69,7 @@ export async function saveAgronexProfile(userId: number, input: { name: string; 
   const db = await requireDb();
   const now = Date.now();
   await db.insert(agronexProfiles).values({ userId, ...input, createdAt: now, updatedAt: now })
-    .onDuplicateKeyUpdate({ set: { ...input, updatedAt: now } });
+    .onConflictDoUpdate({ target: agronexProfiles.userId, set: { ...input, updatedAt: now } });
   return getAgronexProfile(userId);
 }
 
@@ -117,16 +116,18 @@ export async function claimAgronexOrder(userId: number, orderId: string) {
   const profile = await profileOrThrow(userId);
   if (profile.role !== "transporteur") throw new Error("Seuls les transporteurs peuvent accepter une mission.");
   const result = await db.update(agronexOrders).set({ status: "en_transport", transporterId: userId, transporterName: profile.name })
-    .where(and(eq(agronexOrders.id, orderId), eq(agronexOrders.status, "a_transporter"), eq(agronexOrders.paymentStatus, "approved")));
-  if (!result[0].affectedRows) throw new Error("Cette mission a déjà été prise ou n’existe plus.");
+    .where(and(eq(agronexOrders.id, orderId), eq(agronexOrders.status, "a_transporter"), eq(agronexOrders.paymentStatus, "approved")))
+    .returning({ id: agronexOrders.id });
+  if (!result.length) throw new Error("Cette mission a déjà été prise ou n’existe plus.");
 }
 
 export async function deliverAgronexOrder(userId: number, orderId: string) {
   const db = await requireDb();
   await profileOrThrow(userId);
   const result = await db.update(agronexOrders).set({ status: "livree" })
-    .where(and(eq(agronexOrders.id, orderId), eq(agronexOrders.transporterId, userId), eq(agronexOrders.status, "en_transport")));
-  if (!result[0].affectedRows) throw new Error("Cette mission ne vous est pas attribuée ou est déjà terminée.");
+    .where(and(eq(agronexOrders.id, orderId), eq(agronexOrders.transporterId, userId), eq(agronexOrders.status, "en_transport")))
+    .returning({ id: agronexOrders.id });
+  if (!result.length) throw new Error("Cette mission ne vous est pas attribuée ou est déjà terminée.");
 }
 
 export async function listMyAgronexMessages(userId: number): Promise<AgronexMessage[]> {
@@ -172,20 +173,10 @@ export async function getAgronexAdminOverview() {
   };
 }
 
-type AdminDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
-type AdminTxCallback = Parameters<AdminDb["transaction"]>[0];
-type AdminTx = Parameters<AdminTxCallback>[0];
-
 function assertInvitationOwner(actorOpenId: string) {
   if (!ENV.ownerOpenId || actorOpenId !== ENV.ownerOpenId) {
     throw new AdminInvitationError("FORBIDDEN", "Seul le propriétaire AGRONEX peut gérer les invitations administrateur.");
   }
-}
-
-async function lockAdminOwner(tx: AdminTx) {
-  if (!ENV.ownerOpenId) throw new AdminInvitationError("FORBIDDEN", "Le propriétaire AGRONEX n’est pas configuré.");
-  const owner = await tx.select({ id: users.id }).from(users).where(eq(users.openId, ENV.ownerOpenId)).for("update");
-  if (!owner.length) throw new AdminInvitationError("NOT_FOUND", "Le compte propriétaire AGRONEX est introuvable.");
 }
 
 const activeInvitationCondition = (now: number) => and(
@@ -208,30 +199,32 @@ export async function createAgronexAdminInvitation(actorOpenId: string, rawEmail
   const now = Date.now();
   const expiresAt = now + ADMIN_INVITATION_TTL_MS;
   const { token, tokenHash } = createAdminInvitationToken();
+  const invitationId = randomUUID();
 
-  return db.transaction(async (tx) => {
-    await lockAdminOwner(tx);
-    const existingUsers = await tx.select({ role: users.role }).from(users).where(eq(users.email, email)).limit(1);
-    if (existingUsers[0]?.role === "admin") throw new AdminInvitationError("CONFLICT", "Cette adresse appartient déjà à un administrateur.");
+  const [owner] = await db.select({ id: users.id }).from(users).where(eq(users.openId, actorOpenId)).limit(1);
+  if (!owner) throw new AdminInvitationError("NOT_FOUND", "Le compte propriétaire AGRONEX est introuvable.");
+  const [existingAdmin] = await db.select({ id: users.id }).from(users).where(and(eq(users.email, email), eq(users.role, "admin"))).limit(1);
+  if (existingAdmin) throw new AdminInvitationError("CONFLICT", "Cette adresse appartient déjà à un administrateur.");
 
-    const replaceable = await tx.select({ id: agronexAdminInvitations.id }).from(agronexAdminInvitations)
-      .where(and(eq(agronexAdminInvitations.email, email), activeInvitationCondition(now))).for("update");
-    if (replaceable.length) {
-      await tx.update(agronexAdminInvitations).set({ revokedAt: now }).where(and(eq(agronexAdminInvitations.email, email), activeInvitationCondition(now)));
-    }
-
-    const [adminCountRow] = await tx.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.role, "admin"));
-    const [inviteCountRow] = await tx.select({ count: sql<number>`count(*)` }).from(agronexAdminInvitations).where(activeInvitationCondition(now));
-    const admins = Number(adminCountRow?.count ?? 0);
-    const reservations = Number(inviteCountRow?.count ?? 0);
-    const seats = admins + reservations;
-    assertAdminSeatAvailable(admins, reservations);
-
-    const invitation = { id: randomUUID(), email, tokenHash, createdBy: (await tx.select({ id: users.id }).from(users).where(eq(users.openId, actorOpenId)).limit(1))[0]?.id, createdAt: now, expiresAt };
-    if (!invitation.createdBy) throw new AdminInvitationError("NOT_FOUND", "Le compte propriétaire AGRONEX est introuvable.");
-    await tx.insert(agronexAdminInvitations).values(invitation);
-    return { id: invitation.id, email, token, createdAt: now, expiresAt, seatsUsed: seats + 1 };
-  });
+  const result = await runD1Batch([
+    { sql: 'UPDATE agronex_admin_invitations SET revokedAt = ? WHERE email = ? AND redeemedAt IS NULL AND revokedAt IS NULL AND expiresAt > ?', values: [now, email, now] },
+    { sql: `INSERT INTO agronex_admin_invitations (id, email, tokenHash, createdBy, createdAt, expiresAt)
+      SELECT ?, ?, ?, ?, ?, ?
+      WHERE EXISTS (SELECT 1 FROM users WHERE id = ?)
+        AND NOT EXISTS (SELECT 1 FROM users WHERE email = ? AND role = 'admin')
+        AND ((SELECT COUNT(*) FROM users WHERE role = 'admin') +
+             (SELECT COUNT(*) FROM agronex_admin_invitations WHERE redeemedAt IS NULL AND revokedAt IS NULL AND expiresAt > ?)) < ?`,
+      values: [invitationId, email, tokenHash, owner.id, now, expiresAt, owner.id, email, now, AGRONEX_ADMIN_LIMIT] },
+  ]);
+  if ((result[1]?.meta.changes ?? 0) !== 1) {
+    const [adminCountRow] = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.role, "admin"));
+    const [inviteCountRow] = await db.select({ count: sql<number>`count(*)` }).from(agronexAdminInvitations).where(activeInvitationCondition(now));
+    assertAdminSeatAvailable(Number(adminCountRow?.count ?? 0), Number(inviteCountRow?.count ?? 0));
+    throw new AdminInvitationError("CONFLICT", "Cette adresse appartient déjà à un administrateur ou une invitation concurrente vient d’être créée.");
+  }
+  const [adminCountRow] = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.role, "admin"));
+  const [inviteCountRow] = await db.select({ count: sql<number>`count(*)` }).from(agronexAdminInvitations).where(activeInvitationCondition(now));
+  return { id: invitationId, email, token, createdAt: now, expiresAt, seatsUsed: Number(adminCountRow?.count ?? 0) + Number(inviteCountRow?.count ?? 0) };
 }
 
 export async function listActiveAgronexAdminInvitations() {
@@ -259,45 +252,53 @@ export async function redeemAgronexAdminInvitation(token: string, userId: number
   const tokenHash = hashAdminInvitationToken(token);
   const db = await requireDb();
   const now = Date.now();
+  if (!ENV.ownerOpenId) throw new AdminInvitationError("FORBIDDEN", "Le propriétaire AGRONEX n’est pas configuré.");
+  const [owner] = await db.select({ id: users.id }).from(users).where(eq(users.openId, ENV.ownerOpenId)).limit(1);
+  if (!owner) throw new AdminInvitationError("NOT_FOUND", "Le compte propriétaire AGRONEX est introuvable.");
+  const [invite] = await db.select().from(agronexAdminInvitations).where(eq(agronexAdminInvitations.tokenHash, tokenHash)).limit(1);
+  if (!invite) throw new AdminInvitationError("NOT_FOUND", "Cette invitation administrateur est invalide.");
+  const [current] = await db.select({ role: users.role, openId: users.openId }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!current) throw new AdminInvitationError("NOT_FOUND", "Votre compte AGRONEX est introuvable.");
+  const [adminCountRow] = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.role, "admin"));
+  assertAdminInvitationClaim({ invitation: invite, accountEmail: email, accountRole: current.role, currentAdminCount: Number(adminCountRow?.count ?? 0), now });
 
-  return db.transaction(async (tx) => {
-    await lockAdminOwner(tx);
-    const [invite] = await tx.select().from(agronexAdminInvitations).where(eq(agronexAdminInvitations.tokenHash, tokenHash)).for("update");
-    if (!invite) throw new AdminInvitationError("NOT_FOUND", "Cette invitation administrateur est invalide.");
-    const [current] = await tx.select({ role: users.role, openId: users.openId }).from(users).where(eq(users.id, userId)).limit(1);
-    if (!current) throw new AdminInvitationError("NOT_FOUND", "Votre compte AGRONEX est introuvable.");
-    const [adminCountRow] = await tx.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.role, "admin"));
-    assertAdminInvitationClaim({ invitation: invite, accountEmail: email, accountRole: current.role, currentAdminCount: Number(adminCountRow?.count ?? 0), now });
-
-    await tx.update(users).set({ role: "admin" }).where(eq(users.id, userId));
-    await tx.update(agronexAdminInvitations).set({ redeemedAt: now, redeemedBy: userId }).where(eq(agronexAdminInvitations.id, invite.id));
-    return { success: true as const, expiresAt: invite.expiresAt };
-  });
+  const result = await runD1Batch([
+    { sql: `UPDATE users SET role = 'admin' WHERE id = ? AND role = 'user' AND lower(email) = ?
+      AND EXISTS (SELECT 1 FROM agronex_admin_invitations WHERE tokenHash = ? AND lower(email) = ? AND redeemedAt IS NULL AND revokedAt IS NULL AND expiresAt > ?)`,
+      values: [userId, email, tokenHash, email, now] },
+    { sql: `UPDATE agronex_admin_invitations SET redeemedAt = ?, redeemedBy = ?
+      WHERE tokenHash = ? AND lower(email) = ? AND redeemedAt IS NULL AND revokedAt IS NULL AND expiresAt > ?
+        AND EXISTS (SELECT 1 FROM users WHERE id = ? AND role = 'admin' AND lower(email) = ?)`,
+      values: [now, userId, tokenHash, email, now, userId, email] },
+  ]);
+  if ((result[0]?.meta.changes ?? 0) !== 1 || (result[1]?.meta.changes ?? 0) !== 1) {
+    throw new AdminInvitationError("CONFLICT", "Cette invitation vient d’être utilisée ou n’est plus valide.");
+  }
+  return { success: true as const, expiresAt: invite.expiresAt };
 }
 
 export async function revokeAgronexAdminInvitation(actorOpenId: string, invitationId: string) {
   assertInvitationOwner(actorOpenId);
   const db = await requireDb();
   const now = Date.now();
-  return db.transaction(async (tx) => {
-    await lockAdminOwner(tx);
-    const [invite] = await tx.select({ id: agronexAdminInvitations.id, revokedAt: agronexAdminInvitations.revokedAt, redeemedAt: agronexAdminInvitations.redeemedAt })
-      .from(agronexAdminInvitations).where(eq(agronexAdminInvitations.id, invitationId)).for("update");
-    if (!invite || invite.redeemedAt || invite.revokedAt) throw new AdminInvitationError("NOT_FOUND", "Cette invitation n’est plus active.");
-    await tx.update(agronexAdminInvitations).set({ revokedAt: now }).where(eq(agronexAdminInvitations.id, invitationId));
-    return { success: true as const };
-  });
+  const [owner] = await db.select({ id: users.id }).from(users).where(eq(users.openId, actorOpenId)).limit(1);
+  if (!owner) throw new AdminInvitationError("NOT_FOUND", "Le compte propriétaire AGRONEX est introuvable.");
+  const result = await db.update(agronexAdminInvitations).set({ revokedAt: now })
+    .where(and(eq(agronexAdminInvitations.id, invitationId), isNull(agronexAdminInvitations.redeemedAt), isNull(agronexAdminInvitations.revokedAt)))
+    .returning({ id: agronexAdminInvitations.id });
+  if (!result.length) throw new AdminInvitationError("NOT_FOUND", "Cette invitation n’est plus active.");
+  return { success: true as const };
 }
 
 export async function revokeAgronexAdmin(actorOpenId: string, targetId: number) {
   if (!ENV.ownerOpenId || actorOpenId !== ENV.ownerOpenId) throw new Error("Seul le propriétaire du projet peut gérer les administrateurs.");
   const db = await requireDb();
-  return db.transaction(async (tx) => {
-    await lockAdminOwner(tx);
-    const [target] = await tx.select({ id: users.id, openId: users.openId, role: users.role }).from(users).where(eq(users.id, targetId)).limit(1);
-    if (!target || target.role !== "admin") throw new Error("Ce compte n’est pas administrateur.");
-    if (target.openId === ENV.ownerOpenId) throw new Error("Le compte propriétaire ne peut pas être retiré.");
-    await tx.update(users).set({ role: "user" }).where(eq(users.id, targetId));
-    return { id: targetId, revoked: true };
-  });
+  const [owner] = await db.select({ id: users.id }).from(users).where(eq(users.openId, ENV.ownerOpenId)).limit(1);
+  if (!owner) throw new AdminInvitationError("NOT_FOUND", "Le compte propriétaire AGRONEX est introuvable.");
+  const [target] = await db.select({ id: users.id, openId: users.openId, role: users.role }).from(users).where(eq(users.id, targetId)).limit(1);
+  if (!target || target.role !== "admin") throw new Error("Ce compte n’est pas administrateur.");
+  if (target.openId === ENV.ownerOpenId) throw new Error("Le compte propriétaire ne peut pas être retiré.");
+  const result = await db.update(users).set({ role: "user" }).where(and(eq(users.id, targetId), eq(users.role, "admin"), sql`${users.openId} <> ${ENV.ownerOpenId}`)).returning({ id: users.id });
+  if (!result.length) throw new Error("Ce compte n’est plus administrateur.");
+  return { id: targetId, revoked: true };
 }

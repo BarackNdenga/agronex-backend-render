@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { ENV } from "./_core/env";
 import { getDb } from "./db";
-import { users } from "../drizzle/schema";
+import { users } from "../drizzle/schema.d1";
 
 describe("Agronex production owner record", () => {
   it("matches the configured owner ID to Barack's existing admin record", async () => {
