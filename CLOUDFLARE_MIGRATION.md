@@ -10,9 +10,13 @@
 
 ## État du dépôt
 
-Le backend actuel utilise Express et tRPC, Drizzle avec MySQL, et un stockage objet compatible S3. Le schéma principal est dans `drizzle/schema.ts`; les comportements métier sont notamment dans `server/db.ts`, `server/social.ts` et `server/payment-db.ts`.
+Le backend actuel utilise Express et tRPC, Drizzle avec MySQL, et l’API de stockage Forge de Manus, qui fournit des URLs S3 présignées derrière le proxy `/manus-storage`. Le schéma principal est dans `drizzle/schema.ts`; les comportements métier sont notamment dans `server/db.ts`, `server/social.ts` et `server/payment-db.ts`.
 
 Les parcours d’authentification Google et TikTok existent déjà pour les membres. Le premier changement de cette branche impose la séparation demandée : Manus seul peut établir une session admin; Google/TikTok restent des fournisseurs membres et une adresse configurée administrateur ne peut pas obtenir un compte admin par ces fournisseurs.
+
+Le premier schéma SQLite/D1 est maintenant séparé dans `drizzle/schema.d1.ts`, avec sa configuration Drizzle et une migration initiale couvrant 20 tables. Les anciennes colonnes MySQL `ENUM` deviennent du texte contrôlé par 20 contraintes SQLite `CHECK`; un rôle invalide est rejeté. La migration a été exécutée sur SQLite local et les clés étrangères passent `PRAGMA foreign_key_check`. Cette étape ne connecte ni n’altère encore la base D1 distante.
+
+Le module médias possède maintenant un adaptateur de binding R2 et valide les clés d’objet; le proxy conserve `Cache-Control: no-store`. Le bootstrap Worker doit encore lui injecter le binding `MEDIA`. Le fallback Forge est conservé uniquement pour les déploiements Node existants; les URLs signées ne sont pas prétendues compatibles R2 et le chemin correspondant échoue explicitement.
 
 ## Cible proposée
 
