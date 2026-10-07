@@ -114,6 +114,8 @@ export default function Home() {
       ? "Connexion annulée. Tu peux choisir une autre méthode."
       : authResult === "unavailable"
         ? "Cette méthode de connexion n’est pas encore configurée."
+        : authResult === "admin-only"
+          ? "Cette connexion est réservée aux administrateurs. Les membres utilisent Google/Gmail ou TikTok."
         : "Connexion non terminée. Réessaie ou utilise la connexion membre.";
     setToast(message);
     params.delete("auth");
@@ -235,7 +237,7 @@ export default function Home() {
       <p className="agx-auth-note">Connexion sécurisée · Vos publications sont partagées entre les appareils</p>
       <p className="agx-payment-disabled" role="status">{PAYMENT_DISABLED_MESSAGE}</p>
     </section>
-    <footer className="agx-footer"><span>AGRONEX © {new Date().getFullYear()}</span><div className="agx-auth-footer"><button onClick={() => startLogin()}>Déjà membre · se connecter</button><button onClick={openInstall}>Installer sur mon téléphone</button></div></footer>
+    <footer className="agx-footer"><span>AGRONEX © {new Date().getFullYear()}</span><div className="agx-auth-footer"><button onClick={() => startLogin()}>Accès administrateur · Manus</button><button onClick={openInstall}>Installer sur mon téléphone</button></div></footer>
     {installHelp && <InstallModal onClose={() => setInstallHelp(false)} />}
     {toast && <div className="agx-toast" role="status">{toast}</div>}
   </main>;

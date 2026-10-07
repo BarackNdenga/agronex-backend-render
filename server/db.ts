@@ -33,7 +33,7 @@ function requireDb() {
   });
 }
 
-export async function upsertUser(user: InsertUser): Promise<void> {
+export async function upsertUser(user: InsertUser, options: { authenticatedRole?: "user" | "admin" } = {}): Promise<void> {
   if (!user.openId) throw new Error("User openId is required for upsert");
   const db = await getDb();
   if (!db) { console.warn("[Database] Cannot upsert user: database not available"); return; }
@@ -44,9 +44,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     if (user[field] !== undefined) { values[field] = user[field] ?? null; updateSet[field] = user[field] ?? null; }
   }
   if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
-  const normalizedEmail = typeof user.email === "string" ? normalizeInvitationEmail(user.email) : "";
-  if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
-  else if (user.openId === ENV.ownerOpenId || (normalizedEmail && ENV.adminEmails.has(normalizedEmail))) { values.role = "admin"; updateSet.role = "admin"; }
+  if (options.authenticatedRole !== undefined) {
+    values.role = options.authenticatedRole;
+    updateSet.role = options.authenticatedRole;
+  }
   if (!values.lastSignedIn) values.lastSignedIn = new Date();
   if (!Object.keys(updateSet).length) updateSet.lastSignedIn = new Date();
   await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });

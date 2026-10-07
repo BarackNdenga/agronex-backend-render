@@ -7,6 +7,7 @@ import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
 import { ENV } from "./env";
+import { resolveAgronexOAuthRole } from "../admin-owner-config";
 import type {
   ExchangeTokenRequest,
   ExchangeTokenResponse,
@@ -293,13 +294,20 @@ class SDKServer {
     if (!user) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionToken ?? "");
+        const authenticatedRole = resolveAgronexOAuthRole({
+          provider: "manus",
+          openId: userInfo.openId,
+          email: userInfo.email,
+          policy: { ownerOpenId: ENV.ownerOpenId, adminEmails: ENV.adminEmails },
+        });
+        if (authenticatedRole !== "admin") throw ForbiddenError("Manus login is reserved for AGRONEX administrators");
         await db.upsertUser({
           openId: userInfo.openId,
           name: userInfo.name || null,
           email: userInfo.email ?? null,
           loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
           lastSignedIn: signedInAt,
-        });
+        }, { authenticatedRole });
         user = await db.getUserByOpenId(userInfo.openId);
       } catch (error) {
         console.error("[Auth] Failed to sync user from OAuth:", error);
@@ -309,6 +317,18 @@ class SDKServer {
 
     if (!user) {
       throw ForbiddenError("User not found");
+    }
+
+    const provider = sessionUserId.startsWith("g:") ? "google" : sessionUserId.startsWith("t:") ? "tiktok" : "manus";
+    const sessionRole = resolveAgronexOAuthRole({
+      provider,
+      openId: sessionUserId,
+      email: user.email,
+      existingRole: user.role,
+      policy: { ownerOpenId: ENV.ownerOpenId, adminEmails: ENV.adminEmails },
+    });
+    if (!sessionRole || sessionRole !== user.role) {
+      throw ForbiddenError("This authentication provider is not authorized for this AGRONEX role");
     }
 
     await db.upsertUser({

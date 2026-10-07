@@ -6,6 +6,8 @@ import * as db from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { sdk } from "./_core/sdk";
 import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const";
+import { ENV } from "./_core/env";
+import { resolveAgronexOAuthRole } from "./admin-owner-config";
 
 export const SOCIAL_PROVIDERS = ["google", "tiktok"] as const;
 export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
@@ -197,8 +199,20 @@ export function registerSocialOAuthRoutes(app: Express) {
       const prefix = provider === "google" ? "g" : "t";
       const digest = createHmac("sha256", `agronex-social:${provider}`).update(identity.subject).digest("base64url");
       const openId = `${prefix}:${digest}`;
+      const existingUser = await db.getUserByOpenId(openId);
+      const authenticatedRole = resolveAgronexOAuthRole({
+        provider,
+        openId,
+        email: identity.email,
+        existingRole: existingUser?.role,
+        policy: { ownerOpenId: ENV.ownerOpenId, adminEmails: ENV.adminEmails },
+      });
+      if (authenticatedRole !== "user") {
+        redirectAuthError(res, "admin-only");
+        return;
+      }
       const userRecord = { openId, name: identity.name.trim().slice(0, 160), loginMethod: provider, lastSignedIn: new Date(), ...(identity.email ? { email: identity.email } : {}) };
-      await db.upsertUser(userRecord);
+      await db.upsertUser(userRecord, { authenticatedRole });
       if (!await db.getUserByOpenId(openId)) throw new Error("Social account persistence failed");
       const sessionToken = await sdk.createSessionToken(openId, { name: identity.name.trim().slice(0, 160), expiresInMs: ONE_YEAR_MS });
       const cookieOptions = getSessionCookieOptions(req);

@@ -5,6 +5,8 @@ import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 import { registerSocialOAuthRoutes } from "../social-oauth";
+import { ENV } from "./env";
+import { resolveAgronexOAuthRole } from "../admin-owner-config";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -41,13 +43,26 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
 
+      const existingUser = await db.getUserByOpenId(userInfo.openId);
+      const authenticatedRole = resolveAgronexOAuthRole({
+        provider: "manus",
+        openId: userInfo.openId,
+        email: userInfo.email,
+        existingRole: existingUser?.role,
+        policy: { ownerOpenId: ENV.ownerOpenId, adminEmails: ENV.adminEmails },
+      });
+      if (authenticatedRole !== "admin") {
+        res.redirect(302, "/?auth=admin-only");
+        return;
+      }
+
       await db.upsertUser({
         openId: userInfo.openId,
         name: userInfo.name || null,
         email: userInfo.email ?? null,
         loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
         lastSignedIn: new Date(),
-      });
+      }, { authenticatedRole });
 
       const sessionToken = await sdk.createSessionToken(userInfo.openId, {
         name: userInfo.name || "",
