@@ -1,0 +1,83 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1790343676184,
+      "tag": "0000_colorful_black_widow",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1790343810853,
+      "tag": "0001_cheerful_hairball",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1790461970192,
+      "tag": "0002_lazy_scarecrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1790640237105,
+      "tag": "0003_loose_retro_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1790640393165,
+      "tag": "0004_bitter_kang",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1791077847010,
+      "tag": "0005_add_agronex_phone_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1791158633521,
+      "tag": "0006_add_manual_mobile_money_wallets",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1791245300998,
+      "tag": "0007_store_payment_destination_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1791245617280,
+      "tag": "0008_unique_manual_payout_references",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1791329323929,
+      "tag": "0009_special_puff_adder",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1791334091570,
+      "tag": "0010_replace_maishapay_with_mobile_money",
+      "breakpoints": true
+    }
+  ]
+}

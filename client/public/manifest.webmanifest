@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "AGRONEX — The African Agricultural Nexus",
+  "short_name": "AGRONEX",
+  "description": "Le marché agricole qui relie producteurs, acheteurs, transporteurs et investisseurs.",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5f7ef",
+  "theme_color": "#0b4a24",
+  "icons": [
+    { "src": "/manus-storage/agronex-app-icon-192_22e74f30.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/manus-storage/agronex-app-icon-512_9ce9c84c.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

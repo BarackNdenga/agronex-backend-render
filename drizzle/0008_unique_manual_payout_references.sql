@@ -1,0 +1,1 @@
+ALTER TABLE `agronex_payout_requests` ADD CONSTRAINT `agx_payout_provider_ref_uq` UNIQUE(`provider`,`payoutReference`);
