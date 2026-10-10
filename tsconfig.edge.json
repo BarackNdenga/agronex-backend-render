@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "types": ["node"]
+  },
+  "include": [
+    "supabase/functions/agronex-api/index.ts",
+    "supabase/functions/agronex-api/deno.d.ts",
+    "server/**/*.ts",
+    "drizzle/**/*.ts",
+    "shared/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "client", "server/**/*.test.ts"]
+}

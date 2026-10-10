@@ -1,0 +1,19 @@
+{
+  "imports": {
+    "@shared/": "../../../shared/",
+    "@trpc/server": "npm:@trpc/server@11.6.0",
+    "@trpc/server/adapters/fetch": "npm:@trpc/server@11.6.0/adapters/fetch",
+    "@trpc/server/": "npm:@trpc/server@11.6.0/",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.117.3",
+    "axios": "npm:axios@1.12.0",
+    "cookie": "npm:cookie@1.0.2",
+    "drizzle-orm": "npm:drizzle-orm@0.44.5",
+    "drizzle-orm/pg-core": "npm:drizzle-orm@0.44.5/pg-core",
+    "drizzle-orm/postgres-js": "npm:drizzle-orm@0.44.5/postgres-js",
+    "drizzle-orm/": "npm:drizzle-orm@0.44.5/",
+    "jose": "npm:jose@6.1.0",
+    "postgres": "npm:postgres@3.4.9",
+    "superjson": "npm:superjson@1.13.3",
+    "zod": "npm:zod@4.1.12"
+  }
+}

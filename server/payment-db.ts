@@ -88,7 +88,7 @@ export async function savePaymentSettings(actorId: number, input: {
   const now = Date.now();
   await db.insert(agronexPaymentSettings).values({
     id: 1, enabled: input.enabled, automaticEnabled: false, mpesaName, mpesaPhone, airtelName, airtelPhone, orangeName, orangePhone, afrimoneyName, afrimoneyPhone, updatedBy: actorId, updatedAt: now,
-  }).onDuplicateKeyUpdate({ set: { enabled: input.enabled, automaticEnabled: false, mpesaName, mpesaPhone, airtelName, airtelPhone, orangeName, orangePhone, afrimoneyName, afrimoneyPhone, updatedBy: actorId, updatedAt: now } });
+  }).onConflictDoUpdate({ target: agronexPaymentSettings.id, set: { enabled: input.enabled, automaticEnabled: false, mpesaName, mpesaPhone, airtelName, airtelPhone, orangeName, orangePhone, afrimoneyName, afrimoneyPhone, updatedBy: actorId, updatedAt: now } });
   return getPublicPaymentOptions();
 }
 
@@ -120,7 +120,7 @@ export async function createManualAgronexOrder(userId: number, input: { postId: 
     const remainingQty = post.qty - input.qty;
     const stockUpdate = await tx.update(agronexPosts).set({ qty: remainingQty, status: remainingQty > 0 ? "disponible" : "reserve" })
       .where(and(eq(agronexPosts.id, post.id), eq(agronexPosts.status, "disponible"), gte(agronexPosts.qty, input.qty)));
-    if (!stockUpdate[0].affectedRows) throw new Error("Le stock vient d’être réservé par un autre acheteur.");
+    if (!stockUpdate.length) throw new Error("Le stock vient d’être réservé par un autre acheteur.");
 
     const orderId = crypto.randomUUID();
     const paymentId = crypto.randomUUID();
@@ -159,7 +159,7 @@ export async function confirmManualPayment(userId: number, input: { paymentId: s
       return { success: true as const, paymentId: payment.id, reference, confirmedAt: now };
     });
   } catch (error) {
-    if (String(error).includes("Duplicate entry") || (error as { code?: string })?.code === "ER_DUP_ENTRY") throw new Error("Cette référence Mobile Money a déjà été utilisée. Vérifie le SMS de confirmation.");
+    if ((error as { code?: string })?.code === "23505") throw new Error("Cette référence Mobile Money a déjà été utilisée. Vérifie le SMS de confirmation.");
     throw error;
   }
 }
@@ -317,7 +317,7 @@ export async function reviewManualPayout(actorId: number, input: { payoutId: str
       return { status: "paid" as const, amount: Number(payout.amount), reference };
     });
   } catch (error) {
-    if (String(error).includes("Duplicate entry") || (error as { code?: string })?.code === "ER_DUP_ENTRY") throw new Error("Cette référence de versement a déjà été utilisée pour cet opérateur.");
+    if ((error as { code?: string })?.code === "23505") throw new Error("Cette référence de versement a déjà été utilisée pour cet opérateur.");
     throw error;
   }
 }

@@ -215,6 +215,8 @@
 .agx-arrow { position:absolute; right:13px; bottom:16px; color:#25854a; font-size:17px; opacity:0; transition:opacity .15s; }
 .agx-role-card:hover .agx-arrow { opacity:1; }
 .agx-auth-note { margin:14px 0 0; font-size:11px; color:#718476; }
+.agx-auth-role-note { margin:16px 0 -8px; color:#526457; font-size:12px; }
+.agx-auth-mode { border:0; padding:0; background:none; color:#24733e; font:inherit; font-weight:800; text-decoration:underline; }
 .agx-footer,.agx-app-footer { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:17px clamp(0px,3vw,28px) 0; color:#768478; font-size:11px; }
 .agx-footer button,.agx-app-footer button { border:0; background:none; color:#287243; font:inherit; font-weight:700; }
 .agx-onboarding { display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,520px) minmax(0,1fr); padding:26px; background:radial-gradient(ellipse at 50% 0%,#e8f0df,#f6f7f1 56%); }

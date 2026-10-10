@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { COOKIE_NAME } from "@shared/const";
 import { TRPCError } from "@trpc/server";
-import { getSessionCookieOptions } from "./_core/cookies";
+import { isAgronexOwnerEmail } from "./admin-owner-config";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { storagePut } from "./storage";
@@ -28,7 +27,6 @@ import {
 } from "./db";
 import { AdminInvitationError } from "./admin-invitations";
 import { cancelUnpaidManualOrder, confirmManualPayment, createManualAgronexOrder, getManualPaymentAdminData, getMyManualPayments, getPublicPaymentOptions, requestManualPayout, reviewManualPayment, reviewManualPayout, savePaymentSettings } from "./payment-db";
-import { getSocialOAuthConfig, isSocialProviderConfigured } from "./social-oauth";
 import { getPublicMobileMoneyProviders, MOBILE_MONEY_PROVIDERS } from "./mobile-money";
 import { saveFarmerPayoutDetails } from "./payment-db";
 import {
@@ -137,7 +135,8 @@ const agronexRouter = router({
     })).mutation(async ({ ctx, input }) => {
       const match = input.dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
       if (!match || match[1] !== input.contentType) throw new Error("Format de photo invalide.");
-      const bytes = Buffer.from(match[2], "base64");
+      const binary = atob(match[2]);
+      const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
       if (!bytes.length || bytes.length > 1_200_000) throw new Error("La photo doit faire moins de 1,2 Mo après compression.");
       const ext = input.contentType === "image/png" ? "png" : input.contentType === "image/webp" ? "webp" : "jpg";
       const collection = input.purpose === "profile" ? "profiles" : input.purpose === "social" ? "social" : "products";
@@ -148,7 +147,7 @@ const agronexRouter = router({
 });
 
 const adminManagementProcedure = adminProcedure.use(({ ctx, next }) => {
-  if (!ENV.ownerOpenId || ctx.user.openId !== ENV.ownerOpenId) {
+  if (!isAgronexOwnerEmail(ctx.user.email, ENV.ownerEmail)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Seul le propriétaire du projet peut gérer les quatre accès administrateur." });
   }
   return next({ ctx });
@@ -160,7 +159,7 @@ const adminRouter = router({
     return {
       ...overview,
       admins: overview.admins.map((admin) => ({ ...admin, isOwner: admin.id === ctx.user.id })),
-      canManageAdmins: Boolean(ENV.ownerOpenId && ctx.user.openId === ENV.ownerOpenId),
+      canManageAdmins: isAgronexOwnerEmail(ctx.user.email, ENV.ownerEmail),
     };
   }),
   paymentOverview: adminProcedure.query(() => getManualPaymentAdminData()),
@@ -172,35 +171,24 @@ const adminRouter = router({
     .mutation(({ ctx, input }) => reviewManualPayment(ctx.user.id, input)),
   reviewPayout: adminProcedure.input(z.object({ payoutId: z.string().uuid(), decision: z.enum(["paid", "reject"]), reference: z.string().trim().max(120).default(""), note: z.string().trim().max(400).default("") }))
     .mutation(({ ctx, input }) => reviewManualPayout(ctx.user.id, input)),
-  invitations: adminManagementProcedure.query(({ ctx }) => withAdminInvitationErrors(() => listAgronexAdminInvitations(ctx.user.openId))),
+  invitations: adminManagementProcedure.query(({ ctx }) => withAdminInvitationErrors(() => listAgronexAdminInvitations(ctx.user.email))),
   createInvitation: adminManagementProcedure.input(z.object({ email: z.string().trim().email().max(320) }))
-    .mutation(({ ctx, input }) => withAdminInvitationErrors(() => createAgronexAdminInvitation(ctx.user.openId, input.email))),
+    .mutation(({ ctx, input }) => withAdminInvitationErrors(() => createAgronexAdminInvitation(ctx.user.email, input.email))),
   revokeInvitation: adminManagementProcedure.input(z.object({ invitationId: z.string().uuid() }))
-    .mutation(({ ctx, input }) => withAdminInvitationErrors(() => revokeAgronexAdminInvitation(ctx.user.openId, input.invitationId))),
+    .mutation(({ ctx, input }) => withAdminInvitationErrors(() => revokeAgronexAdminInvitation(ctx.user.email, input.invitationId))),
   invitationInfo: publicProcedure.input(z.object({ token: z.string().min(40).max(50).regex(/^[A-Za-z0-9_-]+$/) }))
     .mutation(({ input }) => withAdminInvitationErrors(() => getAgronexAdminInvitationInfo(input.token))),
   redeemInvitation: protectedProcedure.input(z.object({ token: z.string().min(40).max(50).regex(/^[A-Za-z0-9_-]+$/) }))
     .mutation(({ ctx, input }) => withAdminInvitationErrors(() => redeemAgronexAdminInvitation(input.token, ctx.user.id, ctx.user.email))),
   revoke: adminManagementProcedure.input(z.object({ userId: z.number().int().positive() }))
-    .mutation(({ ctx, input }) => revokeAgronexAdmin(ctx.user.openId, input.userId)),
+    .mutation(({ ctx, input }) => revokeAgronexAdmin(ctx.user.email, input.userId)),
 });
 
 export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
-    socialProviders: publicProcedure.query(() => {
-      const config = getSocialOAuthConfig();
-      return {
-        google: isSocialProviderConfigured("google", config),
-        tiktok: isSocialProviderConfigured("tiktok", config),
-      };
-    }),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
-    }),
+    logout: publicProcedure.mutation(() => ({ success: true } as const)),
   }),
   agronex: agronexRouter,
   admin: adminRouter,

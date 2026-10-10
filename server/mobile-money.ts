@@ -1,6 +1,13 @@
 export const MOBILE_MONEY_PROVIDERS = ["orange", "airtel", "afrimoney", "mpesa"] as const;
 export type MobileMoneyProvider = (typeof MOBILE_MONEY_PROVIDERS)[number];
 
+type RuntimeGlobal = typeof globalThis & {
+  Deno?: { env?: { get(name: string): string | undefined } };
+  process?: { env?: Record<string, string | undefined> };
+};
+
+const runtime = globalThis as RuntimeGlobal;
+
 export const MOBILE_MONEY_PROVIDER_LABELS: Record<MobileMoneyProvider, string> = {
   orange: "Orange Money",
   airtel: "Airtel Money",
@@ -15,7 +22,13 @@ type ProviderEnv = {
   enabled: boolean;
 };
 
-const env = (name: string) => process.env[name]?.trim() ?? "";
+const env = (name: string) => {
+  try {
+    return runtime.Deno?.env?.get(name)?.trim() ?? runtime.process?.env?.[name]?.trim() ?? "";
+  } catch {
+    return runtime.process?.env?.[name]?.trim() ?? "";
+  }
+};
 const flag = (name: string) => env(name).toLowerCase() === "true";
 
 /**

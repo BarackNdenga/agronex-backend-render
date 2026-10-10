@@ -1,5 +1,4 @@
 import { and, asc, desc, eq, inArray, like, ne, or, sql } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
 import {
   agronexConnectionRequests,
   agronexFollows,
@@ -51,7 +50,7 @@ async function canSeePost(db: Awaited<ReturnType<typeof requireDb>>, viewerId: n
 
 async function addNotification(db: Awaited<ReturnType<typeof requireDb>>, recipientId: number, actorId: number, kind: "follow" | "connection" | "connection_accepted" | "like" | "comment" | "repost", message: string, postId: string | null = null) {
   if (recipientId === actorId) return;
-  await db.insert(agronexSocialNotifications).values({ id: randomUUID(), recipientId, actorId, postId, kind, message, readAt: null, createdAt: Date.now() });
+  await db.insert(agronexSocialNotifications).values({ id: crypto.randomUUID(), recipientId, actorId, postId, kind, message, readAt: null, createdAt: Date.now() });
 }
 
 export async function getSocialFeed(userId: number, mode: "for-you" | "following" | "connections") {
@@ -154,7 +153,7 @@ export async function createSocialPost(userId: number, input: { body: string; me
   const body = input.body.trim();
   if (!body && !input.mediaUrl) throw new Error("Ajoutez un texte ou une photo à votre publication.");
   if (input.mediaUrl && !input.mediaUrl.startsWith(`/manus-storage/agronex/${userId}/social/`)) throw new Error("La photo doit provenir de votre espace de stockage social AGRONEX.");
-  const row = { id: randomUUID(), authorId: userId, body, mediaUrl: input.mediaUrl, sourcePostId: null, kind: "post" as const, visibility: input.visibility, createdAt: Date.now() };
+  const row = { id: crypto.randomUUID(), authorId: userId, body, mediaUrl: input.mediaUrl, sourcePostId: null, kind: "post" as const, visibility: input.visibility, createdAt: Date.now() };
   await db.insert(agronexSocialPosts).values(row);
   return row;
 }
@@ -225,7 +224,7 @@ export async function followSocialUser(userId: number, targetId: number) {
   const [existing] = await db.select().from(agronexFollows).where(and(eq(agronexFollows.followerId, userId), eq(agronexFollows.followingId, targetId))).limit(1);
   if (existing) await db.delete(agronexFollows).where(and(eq(agronexFollows.followerId, userId), eq(agronexFollows.followingId, targetId)));
   else {
-    await db.insert(agronexFollows).values({ followerId: userId, followingId: targetId, createdAt: Date.now() }).onDuplicateKeyUpdate({ set: { createdAt: Date.now() } });
+    await db.insert(agronexFollows).values({ followerId: userId, followingId: targetId, createdAt: Date.now() }).onConflictDoNothing();
     await addNotification(db, targetId, userId, "follow", "a commencé à vous suivre.");
   }
   return { following: !existing };
@@ -246,7 +245,7 @@ export async function requestSocialConnection(userId: number, targetId: number) 
   if (existing?.status === "pending") return { status: "pending" as const, direction: existing.senderId === userId ? "outgoing" as const : "incoming" as const };
   const now = Date.now();
   if (existing) await db.update(agronexConnectionRequests).set({ senderId: userId, recipientId: targetId, status: "pending", createdAt: now, updatedAt: now }).where(eq(agronexConnectionRequests.id, existing.id));
-  else await db.insert(agronexConnectionRequests).values({ id: randomUUID(), senderId: userId, recipientId: targetId, status: "pending", createdAt: now, updatedAt: now });
+  else await db.insert(agronexConnectionRequests).values({ id: crypto.randomUUID(), senderId: userId, recipientId: targetId, status: "pending", createdAt: now, updatedAt: now });
   await addNotification(db, targetId, userId, "connection", "vous a envoyé une demande de connexion.");
   return { status: "pending" as const, direction: "outgoing" as const };
 }
@@ -283,7 +282,7 @@ export async function createSocialComment(userId: number, postId: string, body: 
   if (!post || !(await canSeePost(db, userId, post))) throw new Error("Cette publication n’est pas disponible.");
   const text = body.trim();
   if (!text) throw new Error("Le commentaire ne peut pas être vide.");
-  const row = { id: randomUUID(), postId, authorId: userId, body: text, createdAt: Date.now() };
+  const row = { id: crypto.randomUUID(), postId, authorId: userId, body: text, createdAt: Date.now() };
   await db.insert(agronexPostComments).values(row);
   const [profile] = await db.select({ name: agronexProfiles.name }).from(agronexProfiles).where(eq(agronexProfiles.userId, userId)).limit(1);
   await addNotification(db, post.authorId, userId, "comment", `a commenté votre publication : ${text.slice(0, 100)}`, postId);
@@ -306,7 +305,7 @@ export async function toggleSocialPost(userId: number, postId: string, action: "
   const [existing] = await db.select().from(table).where(and(eq(table.postId, postId), eq(table.userId, userId))).limit(1);
   if (existing) await db.delete(table).where(and(eq(table.postId, postId), eq(table.userId, userId)));
   else {
-    await db.insert(table).values({ postId, userId, createdAt: Date.now() }).onDuplicateKeyUpdate({ set: { createdAt: Date.now() } });
+    await db.insert(table).values({ postId, userId, createdAt: Date.now() }).onConflictDoNothing();
     if (action === "like") await addNotification(db, post.authorId, userId, "like", "a aimé votre publication.", postId);
   }
   return { active: !existing };
@@ -317,7 +316,7 @@ export async function repostSocialPost(userId: number, postId: string, quote: st
   const [post] = await db.select().from(agronexSocialPosts).where(eq(agronexSocialPosts.id, postId)).limit(1);
   if (!post || !(await canSeePost(db, userId, post))) throw new Error("Cette publication n’est pas disponible.");
   const body = quote.trim();
-  const row = { id: randomUUID(), authorId: userId, body, mediaUrl: null, sourcePostId: postId, kind: body ? "quote" as const : "repost" as const, visibility: "public" as const, createdAt: Date.now() };
+  const row = { id: crypto.randomUUID(), authorId: userId, body, mediaUrl: null, sourcePostId: postId, kind: body ? "quote" as const : "repost" as const, visibility: "public" as const, createdAt: Date.now() };
   await db.insert(agronexSocialPosts).values(row);
   await addNotification(db, post.authorId, userId, "repost", body ? "a cité votre publication." : "a repartagé votre publication.", postId);
   return row;
@@ -338,7 +337,7 @@ export async function listSavedSocialPosts(userId: number) {
 export async function updateSocialSettings(userId: number, input: { privateProfile: boolean; allowConnectionRequests: boolean }) {
   const { db } = await requireProfile(userId);
   const now = Date.now();
-  await db.insert(agronexSocialSettings).values({ userId, ...input, updatedAt: now }).onDuplicateKeyUpdate({ set: { ...input, updatedAt: now } });
+  await db.insert(agronexSocialSettings).values({ userId, ...input, updatedAt: now }).onConflictDoUpdate({ target: agronexSocialSettings.userId, set: { ...input, updatedAt: now } });
   return { ...input };
 }
 

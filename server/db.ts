@@ -1,9 +1,11 @@
 import { and, asc, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import {
   AgronexMessage,
   AgronexOrder,
   AgronexPost,
+  agronexAdminAllowlist,
   agronexAdminInvitations,
   InsertUser,
   agronexMessages,
@@ -14,13 +16,20 @@ import {
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { ADMIN_INVITATION_TTL_MS, AGRONEX_ADMIN_LIMIT, AdminInvitationError, assertAdminInvitationClaim, assertAdminSeatAvailable, createAdminInvitationToken, hashAdminInvitationToken, normalizeInvitationEmail } from "./admin-invitations";
-import { randomUUID } from "node:crypto";
+import * as schema from "../drizzle/schema";
 
-let _db: ReturnType<typeof drizzle> | null = null;
+const createDb = (connectionString: string) => drizzle(postgres(connectionString, {
+  max: 1,
+  idle_timeout: 10,
+  connect_timeout: 10,
+  prepare: false,
+}), { schema });
+type Database = ReturnType<typeof createDb>;
+let _db: Database | null = null;
 
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try { _db = drizzle(process.env.DATABASE_URL); }
+  if (!_db && ENV.databaseUrl) {
+    try { _db = createDb(ENV.databaseUrl); }
     catch (error) { console.warn("[Database] Failed to connect:", error); _db = null; }
   }
   return _db;
@@ -44,12 +53,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     if (user[field] !== undefined) { values[field] = user[field] ?? null; updateSet[field] = user[field] ?? null; }
   }
   if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
-  const normalizedEmail = typeof user.email === "string" ? normalizeInvitationEmail(user.email) : "";
   if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
-  else if (user.openId === ENV.ownerOpenId || (normalizedEmail && ENV.adminEmails.has(normalizedEmail))) { values.role = "admin"; updateSet.role = "admin"; }
   if (!values.lastSignedIn) values.lastSignedIn = new Date();
   if (!Object.keys(updateSet).length) updateSet.lastSignedIn = new Date();
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  await db.insert(users).values(values).onConflictDoUpdate({ target: users.openId, set: updateSet });
 }
 
 export async function getUserByOpenId(openId: string) {
@@ -57,6 +64,18 @@ export async function getUserByOpenId(openId: string) {
   if (!db) return undefined;
   const rows = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return rows[0];
+}
+
+export async function isAllowedAdminEmail(email: string) {
+  const normalized = normalizeInvitationEmail(email);
+  if (!normalized) return false;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
+  const emailHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ active: agronexAdminAllowlist.active }).from(agronexAdminAllowlist)
+    .where(and(eq(agronexAdminAllowlist.emailHash, emailHash), eq(agronexAdminAllowlist.active, true))).limit(1);
+  return Boolean(rows[0]?.active);
 }
 
 export async function getAgronexProfile(userId: number) {
@@ -69,7 +88,7 @@ export async function saveAgronexProfile(userId: number, input: { name: string; 
   const db = await requireDb();
   const now = Date.now();
   await db.insert(agronexProfiles).values({ userId, ...input, createdAt: now, updatedAt: now })
-    .onDuplicateKeyUpdate({ set: { ...input, updatedAt: now } });
+    .onConflictDoUpdate({ target: agronexProfiles.userId, set: { ...input, updatedAt: now } });
   return getAgronexProfile(userId);
 }
 
@@ -117,7 +136,7 @@ export async function claimAgronexOrder(userId: number, orderId: string) {
   if (profile.role !== "transporteur") throw new Error("Seuls les transporteurs peuvent accepter une mission.");
   const result = await db.update(agronexOrders).set({ status: "en_transport", transporterId: userId, transporterName: profile.name })
     .where(and(eq(agronexOrders.id, orderId), eq(agronexOrders.status, "a_transporter"), eq(agronexOrders.paymentStatus, "approved")));
-  if (!result[0].affectedRows) throw new Error("Cette mission a déjà été prise ou n’existe plus.");
+  if (!result.length) throw new Error("Cette mission a déjà été prise ou n’existe plus.");
 }
 
 export async function deliverAgronexOrder(userId: number, orderId: string) {
@@ -125,7 +144,7 @@ export async function deliverAgronexOrder(userId: number, orderId: string) {
   await profileOrThrow(userId);
   const result = await db.update(agronexOrders).set({ status: "livree" })
     .where(and(eq(agronexOrders.id, orderId), eq(agronexOrders.transporterId, userId), eq(agronexOrders.status, "en_transport")));
-  if (!result[0].affectedRows) throw new Error("Cette mission ne vous est pas attribuée ou est déjà terminée.");
+  if (!result.length) throw new Error("Cette mission ne vous est pas attribuée ou est déjà terminée.");
 }
 
 export async function listMyAgronexMessages(userId: number): Promise<AgronexMessage[]> {
@@ -175,15 +194,15 @@ type AdminDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type AdminTxCallback = Parameters<AdminDb["transaction"]>[0];
 type AdminTx = Parameters<AdminTxCallback>[0];
 
-function assertInvitationOwner(actorOpenId: string) {
-  if (!ENV.ownerOpenId || actorOpenId !== ENV.ownerOpenId) {
+function assertInvitationOwner(actorEmail: string | null) {
+  if (!ENV.ownerEmail || !actorEmail || actorEmail.trim().toLowerCase() !== ENV.ownerEmail) {
     throw new AdminInvitationError("FORBIDDEN", "Seul le propriétaire AGRONEX peut gérer les invitations administrateur.");
   }
 }
 
 async function lockAdminOwner(tx: AdminTx) {
-  if (!ENV.ownerOpenId) throw new AdminInvitationError("FORBIDDEN", "Le propriétaire AGRONEX n’est pas configuré.");
-  const owner = await tx.select({ id: users.id }).from(users).where(eq(users.openId, ENV.ownerOpenId)).for("update");
+  if (!ENV.ownerEmail) throw new AdminInvitationError("FORBIDDEN", "L’adresse propriétaire AGRONEX n’est pas configurée.");
+  const owner = await tx.select({ id: users.id }).from(users).where(eq(users.email, ENV.ownerEmail)).for("update");
   if (!owner.length) throw new AdminInvitationError("NOT_FOUND", "Le compte propriétaire AGRONEX est introuvable.");
 }
 
@@ -193,15 +212,15 @@ const activeInvitationCondition = (now: number) => and(
   gt(agronexAdminInvitations.expiresAt, now),
 );
 
-export async function listAgronexAdminInvitations(actorOpenId: string) {
-  assertInvitationOwner(actorOpenId);
+export async function listAgronexAdminInvitations(actorEmail: string | null) {
+  assertInvitationOwner(actorEmail);
   const db = await requireDb();
   return db.select({ id: agronexAdminInvitations.id, email: agronexAdminInvitations.email, createdAt: agronexAdminInvitations.createdAt, expiresAt: agronexAdminInvitations.expiresAt })
     .from(agronexAdminInvitations).where(activeInvitationCondition(Date.now())).orderBy(asc(agronexAdminInvitations.expiresAt)).limit(4);
 }
 
-export async function createAgronexAdminInvitation(actorOpenId: string, rawEmail: string) {
-  assertInvitationOwner(actorOpenId);
+export async function createAgronexAdminInvitation(actorEmail: string | null, rawEmail: string) {
+  assertInvitationOwner(actorEmail);
   const email = normalizeInvitationEmail(rawEmail);
   const db = await requireDb();
   const now = Date.now();
@@ -226,7 +245,7 @@ export async function createAgronexAdminInvitation(actorOpenId: string, rawEmail
     const seats = admins + reservations;
     assertAdminSeatAvailable(admins, reservations);
 
-    const invitation = { id: randomUUID(), email, tokenHash, createdBy: (await tx.select({ id: users.id }).from(users).where(eq(users.openId, actorOpenId)).limit(1))[0]?.id, createdAt: now, expiresAt };
+    const invitation = { id: crypto.randomUUID(), email, tokenHash, createdBy: (await tx.select({ id: users.id }).from(users).where(eq(users.email, ENV.ownerEmail)).limit(1))[0]?.id, createdAt: now, expiresAt };
     if (!invitation.createdBy) throw new AdminInvitationError("NOT_FOUND", "Le compte propriétaire AGRONEX est introuvable.");
     await tx.insert(agronexAdminInvitations).values(invitation);
     return { id: invitation.id, email, token, createdAt: now, expiresAt, seatsUsed: seats + 1 };
@@ -274,8 +293,8 @@ export async function redeemAgronexAdminInvitation(token: string, userId: number
   });
 }
 
-export async function revokeAgronexAdminInvitation(actorOpenId: string, invitationId: string) {
-  assertInvitationOwner(actorOpenId);
+export async function revokeAgronexAdminInvitation(actorEmail: string | null, invitationId: string) {
+  assertInvitationOwner(actorEmail);
   const db = await requireDb();
   const now = Date.now();
   return db.transaction(async (tx) => {
@@ -288,14 +307,14 @@ export async function revokeAgronexAdminInvitation(actorOpenId: string, invitati
   });
 }
 
-export async function revokeAgronexAdmin(actorOpenId: string, targetId: number) {
-  if (!ENV.ownerOpenId || actorOpenId !== ENV.ownerOpenId) throw new Error("Seul le propriétaire du projet peut gérer les administrateurs.");
+export async function revokeAgronexAdmin(actorEmail: string | null, targetId: number) {
+  assertInvitationOwner(actorEmail);
   const db = await requireDb();
   return db.transaction(async (tx) => {
     await lockAdminOwner(tx);
-    const [target] = await tx.select({ id: users.id, openId: users.openId, role: users.role }).from(users).where(eq(users.id, targetId)).limit(1);
+    const [target] = await tx.select({ id: users.id, email: users.email, role: users.role }).from(users).where(eq(users.id, targetId)).limit(1);
     if (!target || target.role !== "admin") throw new Error("Ce compte n’est pas administrateur.");
-    if (target.openId === ENV.ownerOpenId) throw new Error("Le compte propriétaire ne peut pas être retiré.");
+    if (target.email?.trim().toLowerCase() === ENV.ownerEmail) throw new Error("Le compte propriétaire ne peut pas être retiré.");
     await tx.update(users).set({ role: "user" }).where(eq(users.id, targetId));
     return { id: targetId, revoked: true };
   });

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { startLogin, startSocialLogin, type SocialLoginProvider } from "@/const";
+import { startLogin } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import AuthPanel from "@/components/AuthPanel";
 import { ADMIN_RETURN_TARGET_KEY, getAdminReturnTarget } from "@/lib/admin-return";
 import { getAdminLandingPath } from "@/lib/admin-routing";
 import SocialNetwork from "@/components/SocialNetwork";
@@ -61,7 +62,6 @@ async function compressPhoto(file: File) {
 export default function Home() {
   const { user, loading: authLoading, isAuthenticated, logout } = useAuth();
   const utils = trpc.useUtils();
-  const socialProviders = trpc.auth.socialProviders.useQuery(undefined, { retry: false });
   const paymentOptions = trpc.agronex.orders.paymentOptions.useQuery(undefined, { retry: false });
   const paymentStatusCopy = paymentOptions.data?.enabled ? PAYMENT_STATUS_MESSAGE : PAYMENT_DISABLED_MESSAGE;
   const [pendingRole, setPendingRole] = useState<Role | null>(() => {
@@ -69,6 +69,7 @@ export default function Home() {
   });
   const [tab, setTab] = useState("social");
   const [toast, setToast] = useState("");
+  const [authMode, setAuthMode] = useState<"signin" | "signup">(() => ["login", "recovery"].includes(new URLSearchParams(window.location.search).get("auth") || "") ? "signin" : "signup");
   const [installHelp, setInstallHelp] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [adminInviteToken, setAdminInviteToken] = useState<string | null>(() => { try { return sessionStorage.getItem("agronex-admin-invitation"); } catch { return null; } });
@@ -110,12 +111,7 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     const authResult = params.get("auth");
     if (!authResult) return;
-    const message = authResult === "cancelled"
-      ? "Connexion annulée. Tu peux choisir une autre méthode."
-      : authResult === "unavailable"
-        ? "Cette méthode de connexion n’est pas encore configurée."
-        : "Connexion non terminée. Réessaie ou utilise la connexion membre.";
-    setToast(message);
+    if (authResult && authResult !== "login" && authResult !== "recovery") setToast("La connexion n’a pas abouti. Réessaie.");
     params.delete("auth");
     const cleanUrl = `${window.location.pathname}${params.size ? `?${params}` : ""}${window.location.hash}`;
     window.history.replaceState({}, "", cleanUrl);
@@ -150,12 +146,8 @@ export default function Home() {
 
   const selectRole = (role: Role) => {
     setPendingRole(role);
+    setAuthMode("signup");
     try { sessionStorage.setItem("agronex-pending-role", role); } catch { /* private browser */ }
-  };
-  const handleSocialLogin = (provider: SocialLoginProvider) => {
-    if (!pendingRole) { setToast("Choisis d’abord ton profil AGRONEX."); return; }
-    try { sessionStorage.setItem("agronex-pending-role", pendingRole); } catch {}
-    startSocialLogin(provider);
   };
   const showError = (error: unknown) => setToast(error instanceof Error ? error.message : "Une erreur est survenue. Réessayez.");
   const handleProfileSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -220,22 +212,14 @@ export default function Home() {
           <span className="agx-role-index">0{index + 1}</span><span className="agx-role-icon">{info.icon}</span><strong>{info.label}</strong><span className="agx-role-desc">{info.desc}</span><span className="agx-arrow">↗</span>
         </button>)}
       </div>
-      {pendingRole && <section className="agx-social-signup" aria-labelledby="agx-social-heading">
-          <div className="agx-social-signup-heading"><span className="agx-kicker">CRÉATION DE COMPTE</span><h3 id="agx-social-heading">Continuer comme {roleInfo[pendingRole].label}</h3><p>Choisis un compte Google (Gmail) ou TikTok.</p></div>
-          <div className="agx-social-signup-buttons">
-          {(["google", "tiktok"] as const).map((provider) => {
-            const label = provider === "google" ? "Google / Gmail" : "TikTok";
-            const available = socialProviders.data?.[provider] === true;
-            return <button key={provider} type="button" className={`agx-oauth-button agx-oauth-${provider}`} disabled={!available || socialProviders.isLoading} onClick={() => handleSocialLogin(provider)}>
-              <span className="agx-oauth-mark" aria-hidden="true">{provider === "google" ? "G" : "♪"}</span><span>Continuer avec {label}</span>{!available && <small>En configuration</small>}
-            </button>;
-          })}
-        </div>
-      </section>}
+      {(pendingRole || authMode === "signin") && <>
+        {pendingRole && <p className="agx-auth-role-note">Profil choisi : <strong>{roleInfo[pendingRole].label}</strong></p>}
+        <AuthPanel pendingRole={pendingRole} initialMode={authMode} onModeChange={setAuthMode} onError={setToast} />
+      </>}
       <p className="agx-auth-note">Connexion sécurisée · Vos publications sont partagées entre les appareils</p>
       <p className="agx-payment-disabled" role="status">{PAYMENT_DISABLED_MESSAGE}</p>
     </section>
-    <footer className="agx-footer"><span>AGRONEX © {new Date().getFullYear()}</span><div className="agx-auth-footer"><button onClick={() => startLogin()}>Déjà membre · se connecter</button><button onClick={openInstall}>Installer sur mon téléphone</button></div></footer>
+    <footer className="agx-footer"><span>AGRONEX © {new Date().getFullYear()}</span><div className="agx-auth-footer"><button onClick={() => setAuthMode("signin")}>Déjà membre · se connecter</button><button onClick={openInstall}>Installer sur mon téléphone</button></div></footer>
     {installHelp && <InstallModal onClose={() => setInstallHelp(false)} />}
     {toast && <div className="agx-toast" role="status">{toast}</div>}
   </main>;

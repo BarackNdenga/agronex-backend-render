@@ -104,8 +104,8 @@ describe("agronex router", () => {
     const caller = appRouter.createCaller(admin);
     const overview = await caller.admin.overview();
     expect(overview.counts.admins).toBe(1);
-    expect(overview.canManageAdmins).toBe(admin.user?.openId === ENV.ownerOpenId);
-    if (admin.user?.openId !== ENV.ownerOpenId) {
+    expect(overview.canManageAdmins).toBe(admin.user?.email?.toLowerCase() === ENV.ownerEmail);
+    if (admin.user?.email?.toLowerCase() !== ENV.ownerEmail) {
       await expect(caller.admin.invitations()).rejects.toMatchObject({ code: "FORBIDDEN" });
       await expect(caller.admin.createInvitation({ email: "admin2@example.com" })).rejects.toMatchObject({ code: "FORBIDDEN" });
       await expect(caller.admin.configurePayments({ enabled: true, mpesaName: "AGRONEX", mpesaPhone: "0812345678", airtelName: "", airtelPhone: "" }))
@@ -145,11 +145,11 @@ describe("agronex router", () => {
   });
 
   it("allows invitation management only from an admin session bound to the configured project owner", async () => {
-    if (!ENV.ownerOpenId) return;
+    if (!ENV.ownerEmail) return;
     vi.mocked(db.createAgronexAdminInvitation).mockResolvedValueOnce({ id: "f0f85bce-4a9d-49bc-b446-45d19335b836", email: "admin2@example.com", token: "x".repeat(43), createdAt: 1000, expiresAt: 2000, seatsUsed: 2 });
-    const owner = context({ ...context().user!, openId: ENV.ownerOpenId, role: "admin" });
+    const owner = context({ ...context().user!, email: ENV.ownerEmail, role: "admin" });
     const caller = appRouter.createCaller(owner);
     await caller.admin.createInvitation({ email: "ADMIN2@example.com" });
-    expect(db.createAgronexAdminInvitation).toHaveBeenCalledWith(ENV.ownerOpenId, "ADMIN2@example.com");
+    expect(db.createAgronexAdminInvitation).toHaveBeenCalledWith(ENV.ownerEmail, "ADMIN2@example.com");
   });
 });

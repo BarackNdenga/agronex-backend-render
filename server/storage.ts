@@ -1,73 +1,68 @@
-// Preconfigured storage helpers for Manus WebDev templates
-// Uploads via Forge Server presigned URL to S3 (PUT direct).
-// Downloads return /manus-storage/{key} paths served via 307 redirect.
-
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { Buffer } from "node:buffer";
+import { createClient } from "@supabase/supabase-js";
 import { ENV } from "./_core/env";
 
-function getForgeConfig() {
-  const forgeUrl = ENV.forgeApiUrl;
-  const forgeKey = ENV.forgeApiKey;
-
-  if (!forgeUrl || !forgeKey) {
-    throw new Error(
-      "Storage config missing: set BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY",
-    );
-  }
-
-  return { forgeUrl: forgeUrl.replace(/\/+$/, ""), forgeKey };
-}
+const MEDIA_URL_TTL_SECONDS = 30 * 60;
 
 function normalizeKey(relKey: string): string {
-  return relKey.replace(/^\/+/, "");
+  const key = relKey.replace(/^\/+/, "");
+  if (!key || key.split("/").some((part) => !part || part === "." || part === "..") || !/^[A-Za-z0-9/_\-.]+$/.test(key)) {
+    throw new Error("Clé de stockage AGRONEX invalide.");
+  }
+  return key;
+}
+
+function storageAdmin() {
+  if (!ENV.supabaseSecretKey) throw new Error("Le stockage Supabase n’est pas configuré côté serveur.");
+  return createClient(ENV.supabaseUrl, ENV.supabaseSecretKey, {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+  });
+}
+
+function signatureFor(key: string, expiresAt: number) {
+  if (!ENV.supabaseSecretKey) throw new Error("La clé secrète Supabase manque pour signer les médias.");
+  return createHmac("sha256", ENV.supabaseSecretKey).update(`${key}\n${expiresAt}`).digest("hex");
+}
+
+export function signStorageUrl(relKey: string, nowSeconds = Math.floor(Date.now() / 1000)) {
+  const key = normalizeKey(relKey);
+  const expiresAt = nowSeconds + MEDIA_URL_TTL_SECONDS;
+  const signature = signatureFor(key, expiresAt);
+  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+  return `${ENV.supabaseUrl}/functions/v1/agronex-api/manus-storage/${encodedKey}?expires=${expiresAt}&sig=${signature}`;
+}
+
+export function verifyStorageSignature(relKey: string, expiresAt: number, signature: string, nowSeconds = Math.floor(Date.now() / 1000)) {
+  let key: string;
+  try { key = normalizeKey(relKey); } catch { return false; }
+  if (!Number.isSafeInteger(expiresAt) || expiresAt < nowSeconds || expiresAt > nowSeconds + MEDIA_URL_TTL_SECONDS + 60) return false;
+  if (!/^[a-f0-9]{64}$/.test(signature)) return false;
+  const expected = Buffer.from(signatureFor(key, expiresAt), "hex");
+  const received = Buffer.from(signature, "hex");
+  return expected.length === received.length && timingSafeEqual(expected, received);
 }
 
 function appendHashSuffix(relKey: string): string {
+  const safeKey = normalizeKey(relKey);
   const hash = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
-  const lastDot = relKey.lastIndexOf(".");
-  if (lastDot === -1) return `${relKey}_${hash}`;
-  return `${relKey.slice(0, lastDot)}_${hash}${relKey.slice(lastDot)}`;
+  const lastDot = safeKey.lastIndexOf(".");
+  if (lastDot === -1) return `${safeKey}_${hash}`;
+  return `${safeKey.slice(0, lastDot)}_${hash}${safeKey.slice(lastDot)}`;
 }
 
 export async function storagePut(
   relKey: string,
-  data: Buffer | Uint8Array | string,
+  data: Uint8Array | string,
   contentType = "application/octet-stream",
 ): Promise<{ key: string; url: string }> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
-  const key = appendHashSuffix(normalizeKey(relKey));
-
-  // 1. Get presigned PUT URL from Forge
-  const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
-  presignUrl.searchParams.set("path", key);
-
-  const presignResp = await fetch(presignUrl, {
-    headers: { Authorization: `Bearer ${forgeKey}` },
+  const key = appendHashSuffix(relKey);
+  const { error } = await storageAdmin().storage.from(ENV.storageBucket).upload(key, data, {
+    contentType,
+    upsert: false,
+    cacheControl: "1800",
   });
-
-  if (!presignResp.ok) {
-    const msg = await presignResp.text().catch(() => presignResp.statusText);
-    throw new Error(`Storage presign failed (${presignResp.status}): ${msg}`);
-  }
-
-  const { url: s3Url } = (await presignResp.json()) as { url: string };
-  if (!s3Url) throw new Error("Forge returned empty presign URL");
-
-  // 2. PUT file directly to S3
-  const blob =
-    typeof data === "string"
-      ? new Blob([data], { type: contentType })
-      : new Blob([data as any], { type: contentType });
-
-  const uploadResp = await fetch(s3Url, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body: blob,
-  });
-
-  if (!uploadResp.ok) {
-    throw new Error(`Storage upload to S3 failed (${uploadResp.status})`);
-  }
-
+  if (error) throw new Error("Échec de l’envoi du fichier dans Supabase Storage.");
   return { key, url: `/manus-storage/${key}` };
 }
 
@@ -77,21 +72,12 @@ export async function storageGet(relKey: string): Promise<{ key: string; url: st
 }
 
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
+  return signStorageUrl(relKey);
+}
+
+export async function storageDownload(relKey: string) {
   const key = normalizeKey(relKey);
-
-  const getUrl = new URL("v1/storage/presign/get", forgeUrl + "/");
-  getUrl.searchParams.set("path", key);
-
-  const resp = await fetch(getUrl, {
-    headers: { Authorization: `Bearer ${forgeKey}` },
-  });
-
-  if (!resp.ok) {
-    const msg = await resp.text().catch(() => resp.statusText);
-    throw new Error(`Storage signed URL failed (${resp.status}): ${msg}`);
-  }
-
-  const { url } = (await resp.json()) as { url: string };
-  return url;
+  const { data, error } = await storageAdmin().storage.from(ENV.storageBucket).download(key);
+  if (error || !data) throw new Error("Fichier AGRONEX introuvable dans Supabase Storage.");
+  return data;
 }

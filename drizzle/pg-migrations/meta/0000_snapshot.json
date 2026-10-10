@@ -1,0 +1,2713 @@
+{
+  "id": "75617e41-54db-4d58-8bf0-3a47ab821b1a",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.agronex_admin_allowlist": {
+      "name": "agronex_admin_allowlist",
+      "schema": "",
+      "columns": {
+        "emailHash": {
+          "name": "emailHash",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_admin_invitations": {
+      "name": "agronex_admin_invitations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tokenHash": {
+          "name": "tokenHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "redeemedAt": {
+          "name": "redeemedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "redeemedBy": {
+          "name": "redeemedBy",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revokedAt": {
+          "name": "revokedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "agronex_admin_invite_email_idx": {
+          "name": "agronex_admin_invite_email_idx",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agronex_admin_invitations_createdBy_users_id_fk": {
+          "name": "agronex_admin_invitations_createdBy_users_id_fk",
+          "tableFrom": "agronex_admin_invitations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "createdBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "agronex_admin_invitations_redeemedBy_users_id_fk": {
+          "name": "agronex_admin_invitations_redeemedBy_users_id_fk",
+          "tableFrom": "agronex_admin_invitations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "redeemedBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "agronex_admin_invitations_tokenHash_unique": {
+          "name": "agronex_admin_invitations_tokenHash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tokenHash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_auth_identities": {
+      "name": "agronex_auth_identities",
+      "schema": "",
+      "columns": {
+        "provider": {
+          "name": "provider",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subjectHash": {
+          "name": "subjectHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "authUserId": {
+          "name": "authUserId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "agronex_auth_identity_user_uq": {
+          "name": "agronex_auth_identity_user_uq",
+          "columns": [
+            {
+              "expression": "authUserId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "agronex_auth_identities_provider_subjectHash_pk": {
+          "name": "agronex_auth_identities_provider_subjectHash_pk",
+          "columns": [
+            "provider",
+            "subjectHash"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_connection_requests": {
+      "name": "agronex_connection_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "senderId": {
+          "name": "senderId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recipientId": {
+          "name": "recipientId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "agronex_connection_requests_status_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "agronex_connection_sender_recipient_idx": {
+          "name": "agronex_connection_sender_recipient_idx",
+          "columns": [
+            {
+              "expression": "senderId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recipientId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agronex_connection_recipient_status_idx": {
+          "name": "agronex_connection_recipient_status_idx",
+          "columns": [
+            {
+              "expression": "recipientId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agx_conn_sender_fk": {
+          "name": "agx_conn_sender_fk",
+          "tableFrom": "agronex_connection_requests",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "senderId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "agx_conn_recipient_fk": {
+          "name": "agx_conn_recipient_fk",
+          "tableFrom": "agronex_connection_requests",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "recipientId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_follows": {
+      "name": "agronex_follows",
+      "schema": "",
+      "columns": {
+        "followerId": {
+          "name": "followerId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "followingId": {
+          "name": "followingId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "agronex_follow_target_idx": {
+          "name": "agronex_follow_target_idx",
+          "columns": [
+            {
+              "expression": "followingId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agx_follow_actor_fk": {
+          "name": "agx_follow_actor_fk",
+          "tableFrom": "agronex_follows",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "followerId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "agx_follow_target_fk": {
+          "name": "agx_follow_target_fk",
+          "tableFrom": "agronex_follows",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "followingId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "agronex_follows_followerId_followingId_pk": {
+          "name": "agronex_follows_followerId_followingId_pk",
+          "columns": [
+            "followerId",
+            "followingId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_messages": {
+      "name": "agronex_messages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "fromId": {
+          "name": "fromId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fromName": {
+          "name": "fromName",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "toId": {
+          "name": "toId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "toName": {
+          "name": "toName",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "agronex_messages_fromId_agronex_profiles_userId_fk": {
+          "name": "agronex_messages_fromId_agronex_profiles_userId_fk",
+          "tableFrom": "agronex_messages",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "fromId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "agronex_messages_toId_agronex_profiles_userId_fk": {
+          "name": "agronex_messages_toId_agronex_profiles_userId_fk",
+          "tableFrom": "agronex_messages",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "toId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_orders": {
+      "name": "agronex_orders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "postId": {
+          "name": "postId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "postTitle": {
+          "name": "postTitle",
+          "type": "varchar(180)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "farmerId": {
+          "name": "farmerId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "farmerName": {
+          "name": "farmerName",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pickup": {
+          "name": "pickup",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buyerId": {
+          "name": "buyerId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buyerName": {
+          "name": "buyerName",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buyerLocation": {
+          "name": "buyerLocation",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "qty": {
+          "name": "qty",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit": {
+          "name": "unit",
+          "type": "varchar(24)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unitPrice": {
+          "name": "unitPrice",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "grossAmount": {
+          "name": "grossAmount",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "paymentStatus": {
+          "name": "paymentStatus",
+          "type": "agronex_orders_paymentStatus_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'approved'"
+        },
+        "status": {
+          "name": "status",
+          "type": "agronex_orders_status_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'a_transporter'"
+        },
+        "transporterId": {
+          "name": "transporterId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "transporterName": {
+          "name": "transporterName",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "agronex_orders_postId_agronex_posts_id_fk": {
+          "name": "agronex_orders_postId_agronex_posts_id_fk",
+          "tableFrom": "agronex_orders",
+          "tableTo": "agronex_posts",
+          "columnsFrom": [
+            "postId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "agronex_orders_farmerId_agronex_profiles_userId_fk": {
+          "name": "agronex_orders_farmerId_agronex_profiles_userId_fk",
+          "tableFrom": "agronex_orders",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "farmerId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "agronex_orders_buyerId_agronex_profiles_userId_fk": {
+          "name": "agronex_orders_buyerId_agronex_profiles_userId_fk",
+          "tableFrom": "agronex_orders",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "buyerId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "agronex_orders_transporterId_agronex_profiles_userId_fk": {
+          "name": "agronex_orders_transporterId_agronex_profiles_userId_fk",
+          "tableFrom": "agronex_orders",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "transporterId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_otp_rate_limits": {
+      "name": "agronex_otp_rate_limits",
+      "schema": "",
+      "columns": {
+        "bucketHash": {
+          "name": "bucketHash",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "windowStartedAt": {
+          "name": "windowStartedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sends": {
+          "name": "sends",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "lastSentAt": {
+          "name": "lastSentAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_payment_requests": {
+      "name": "agronex_payment_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "orderId": {
+          "name": "orderId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buyerId": {
+          "name": "buyerId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "farmerId": {
+          "name": "farmerId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buyerName": {
+          "name": "buyerName",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "farmerName": {
+          "name": "farmerName",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "postTitle": {
+          "name": "postTitle",
+          "type": "varchar(180)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "agronex_payment_requests_provider_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "paymentMethod": {
+          "name": "paymentMethod",
+          "type": "agronex_payment_requests_paymentMethod_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
+        },
+        "buyerPhone": {
+          "name": "buyerPhone",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "farmerPayoutProvider": {
+          "name": "farmerPayoutProvider",
+          "type": "agronex_payment_requests_farmerPayoutProvider_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "farmerPayoutPhone": {
+          "name": "farmerPayoutPhone",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destinationName": {
+          "name": "destinationName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destinationPhone": {
+          "name": "destinationPhone",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "grossAmount": {
+          "name": "grossAmount",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "commissionAmount": {
+          "name": "commissionAmount",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "farmerAmount": {
+          "name": "farmerAmount",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference": {
+          "name": "reference",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "agronex_payment_requests_status_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "gatewayTransactionId": {
+          "name": "gatewayTransactionId",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payoutReference": {
+          "name": "payoutReference",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payoutTransactionId": {
+          "name": "payoutTransactionId",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payoutAttemptedAt": {
+          "name": "payoutAttemptedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "failureNote": {
+          "name": "failureNote",
+          "type": "varchar(400)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewedBy": {
+          "name": "reviewedBy",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewedAt": {
+          "name": "reviewedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewNote": {
+          "name": "reviewNote",
+          "type": "varchar(400)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "agx_payment_provider_ref_uq": {
+          "name": "agx_payment_provider_ref_uq",
+          "columns": [
+            {
+              "expression": "provider",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "reference",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agx_payment_order_uq": {
+          "name": "agx_payment_order_uq",
+          "columns": [
+            {
+              "expression": "orderId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agx_payment_payout_reference_uq": {
+          "name": "agx_payment_payout_reference_uq",
+          "columns": [
+            {
+              "expression": "payoutReference",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agx_payment_status_created_idx": {
+          "name": "agx_payment_status_created_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agx_payment_farmer_idx": {
+          "name": "agx_payment_farmer_idx",
+          "columns": [
+            {
+              "expression": "farmerId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agronex_payment_requests_orderId_agronex_orders_id_fk": {
+          "name": "agronex_payment_requests_orderId_agronex_orders_id_fk",
+          "tableFrom": "agronex_payment_requests",
+          "tableTo": "agronex_orders",
+          "columnsFrom": [
+            "orderId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "agronex_payment_requests_buyerId_agronex_profiles_userId_fk": {
+          "name": "agronex_payment_requests_buyerId_agronex_profiles_userId_fk",
+          "tableFrom": "agronex_payment_requests",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "buyerId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "agronex_payment_requests_farmerId_agronex_profiles_userId_fk": {
+          "name": "agronex_payment_requests_farmerId_agronex_profiles_userId_fk",
+          "tableFrom": "agronex_payment_requests",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "farmerId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "agronex_payment_requests_reviewedBy_users_id_fk": {
+          "name": "agronex_payment_requests_reviewedBy_users_id_fk",
+          "tableFrom": "agronex_payment_requests",
+          "tableTo": "users",
+          "columnsFrom": [
+            "reviewedBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_payment_settings": {
+      "name": "agronex_payment_settings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "default": 1
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "automaticEnabled": {
+          "name": "automaticEnabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "mpesaName": {
+          "name": "mpesaName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mpesaPhone": {
+          "name": "mpesaPhone",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "airtelName": {
+          "name": "airtelName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "airtelPhone": {
+          "name": "airtelPhone",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "orangeName": {
+          "name": "orangeName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "orangePhone": {
+          "name": "orangePhone",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "afrimoneyName": {
+          "name": "afrimoneyName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "afrimoneyPhone": {
+          "name": "afrimoneyPhone",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updatedBy": {
+          "name": "updatedBy",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "agronex_payment_settings_updatedBy_users_id_fk": {
+          "name": "agronex_payment_settings_updatedBy_users_id_fk",
+          "tableFrom": "agronex_payment_settings",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updatedBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_payout_requests": {
+      "name": "agronex_payout_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "farmerId": {
+          "name": "farmerId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "paymentRequestId": {
+          "name": "paymentRequestId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "farmerName": {
+          "name": "farmerName",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "agronex_payout_requests_provider_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "method": {
+          "name": "method",
+          "type": "agronex_payout_requests_method_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
+        },
+        "status": {
+          "name": "status",
+          "type": "agronex_payout_requests_status_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "requestedAt": {
+          "name": "requestedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reviewedBy": {
+          "name": "reviewedBy",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewedAt": {
+          "name": "reviewedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payoutReference": {
+          "name": "payoutReference",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gatewayTransactionId": {
+          "name": "gatewayTransactionId",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "varchar(400)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "agx_payout_status_time_idx": {
+          "name": "agx_payout_status_time_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "requestedAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agx_payout_farmer_idx": {
+          "name": "agx_payout_farmer_idx",
+          "columns": [
+            {
+              "expression": "farmerId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agx_payout_provider_ref_uq": {
+          "name": "agx_payout_provider_ref_uq",
+          "columns": [
+            {
+              "expression": "provider",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "payoutReference",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agx_auto_payout_payment_uq": {
+          "name": "agx_auto_payout_payment_uq",
+          "columns": [
+            {
+              "expression": "paymentRequestId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agronex_payout_requests_farmerId_agronex_profiles_userId_fk": {
+          "name": "agronex_payout_requests_farmerId_agronex_profiles_userId_fk",
+          "tableFrom": "agronex_payout_requests",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "farmerId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "agronex_payout_requests_paymentRequestId_agronex_payment_requests_id_fk": {
+          "name": "agronex_payout_requests_paymentRequestId_agronex_payment_requests_id_fk",
+          "tableFrom": "agronex_payout_requests",
+          "tableTo": "agronex_payment_requests",
+          "columnsFrom": [
+            "paymentRequestId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "agronex_payout_requests_reviewedBy_users_id_fk": {
+          "name": "agronex_payout_requests_reviewedBy_users_id_fk",
+          "tableFrom": "agronex_payout_requests",
+          "tableTo": "users",
+          "columnsFrom": [
+            "reviewedBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_phone_verifications": {
+      "name": "agronex_phone_verifications",
+      "schema": "",
+      "columns": {
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "codeHash": {
+          "name": "codeHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "verifiedAt": {
+          "name": "verifiedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "consumedAt": {
+          "name": "consumedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lastSentAt": {
+          "name": "lastSentAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "agronex_phone_verification_phone_idx": {
+          "name": "agronex_phone_verification_phone_idx",
+          "columns": [
+            {
+              "expression": "phone",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agronex_phone_verifications_userId_users_id_fk": {
+          "name": "agronex_phone_verifications_userId_users_id_fk",
+          "tableFrom": "agronex_phone_verifications",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_post_comments": {
+      "name": "agronex_post_comments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "postId": {
+          "name": "postId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "authorId": {
+          "name": "authorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "varchar(1200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "agronex_comment_post_created_idx": {
+          "name": "agronex_comment_post_created_idx",
+          "columns": [
+            {
+              "expression": "postId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agx_comment_post_fk": {
+          "name": "agx_comment_post_fk",
+          "tableFrom": "agronex_post_comments",
+          "tableTo": "agronex_social_posts",
+          "columnsFrom": [
+            "postId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "agx_comment_author_fk": {
+          "name": "agx_comment_author_fk",
+          "tableFrom": "agronex_post_comments",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "authorId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_post_likes": {
+      "name": "agronex_post_likes",
+      "schema": "",
+      "columns": {
+        "postId": {
+          "name": "postId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "agronex_like_user_idx": {
+          "name": "agronex_like_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agx_like_post_fk": {
+          "name": "agx_like_post_fk",
+          "tableFrom": "agronex_post_likes",
+          "tableTo": "agronex_social_posts",
+          "columnsFrom": [
+            "postId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "agx_like_user_fk": {
+          "name": "agx_like_user_fk",
+          "tableFrom": "agronex_post_likes",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "agronex_post_likes_postId_userId_pk": {
+          "name": "agronex_post_likes_postId_userId_pk",
+          "columns": [
+            "postId",
+            "userId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_posts": {
+      "name": "agronex_posts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "farmerId": {
+          "name": "farmerId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "farmerName": {
+          "name": "farmerName",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "varchar(180)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "qty": {
+          "name": "qty",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit": {
+          "name": "unit",
+          "type": "varchar(24)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price": {
+          "name": "price",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location": {
+          "name": "location",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "photoUrl": {
+          "name": "photoUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "agronex_posts_status_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'disponible'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "agronex_posts_farmerId_agronex_profiles_userId_fk": {
+          "name": "agronex_posts_farmerId_agronex_profiles_userId_fk",
+          "tableFrom": "agronex_posts",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "farmerId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_profiles": {
+      "name": "agronex_profiles",
+      "schema": "",
+      "columns": {
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "avatarUrl": {
+          "name": "avatarUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bio": {
+          "name": "bio",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phoneVerifiedAt": {
+          "name": "phoneVerifiedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "agronex_profiles_role_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payoutProvider": {
+          "name": "payoutProvider",
+          "type": "agronex_profiles_payoutProvider_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payoutPhone": {
+          "name": "payoutPhone",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payoutUpdatedAt": {
+          "name": "payoutUpdatedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "agronex_profiles_userId_users_id_fk": {
+          "name": "agronex_profiles_userId_users_id_fk",
+          "tableFrom": "agronex_profiles",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_saved_posts": {
+      "name": "agronex_saved_posts",
+      "schema": "",
+      "columns": {
+        "postId": {
+          "name": "postId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "agronex_saved_user_idx": {
+          "name": "agronex_saved_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agx_saved_post_fk": {
+          "name": "agx_saved_post_fk",
+          "tableFrom": "agronex_saved_posts",
+          "tableTo": "agronex_social_posts",
+          "columnsFrom": [
+            "postId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "agx_saved_user_fk": {
+          "name": "agx_saved_user_fk",
+          "tableFrom": "agronex_saved_posts",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "agronex_saved_posts_postId_userId_pk": {
+          "name": "agronex_saved_posts_postId_userId_pk",
+          "columns": [
+            "postId",
+            "userId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_social_notifications": {
+      "name": "agronex_social_notifications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "recipientId": {
+          "name": "recipientId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actorId": {
+          "name": "actorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "postId": {
+          "name": "postId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "agronex_social_notifications_kind_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "message": {
+          "name": "message",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "readAt": {
+          "name": "readAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "agronex_notifications_recipient_created_idx": {
+          "name": "agronex_notifications_recipient_created_idx",
+          "columns": [
+            {
+              "expression": "recipientId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agx_notify_recipient_fk": {
+          "name": "agx_notify_recipient_fk",
+          "tableFrom": "agronex_social_notifications",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "recipientId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "agx_notify_actor_fk": {
+          "name": "agx_notify_actor_fk",
+          "tableFrom": "agronex_social_notifications",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "actorId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "agx_notify_post_fk": {
+          "name": "agx_notify_post_fk",
+          "tableFrom": "agronex_social_notifications",
+          "tableTo": "agronex_social_posts",
+          "columnsFrom": [
+            "postId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_social_posts": {
+      "name": "agronex_social_posts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "authorId": {
+          "name": "authorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mediaUrl": {
+          "name": "mediaUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sourcePostId": {
+          "name": "sourcePostId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "agronex_social_posts_kind_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'post'"
+        },
+        "visibility": {
+          "name": "visibility",
+          "type": "agronex_social_posts_visibility_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'public'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "agronex_social_author_created_idx": {
+          "name": "agronex_social_author_created_idx",
+          "columns": [
+            {
+              "expression": "authorId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agronex_social_source_idx": {
+          "name": "agronex_social_source_idx",
+          "columns": [
+            {
+              "expression": "sourcePostId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agx_sp_author_fk": {
+          "name": "agx_sp_author_fk",
+          "tableFrom": "agronex_social_posts",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "authorId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_social_settings": {
+      "name": "agronex_social_settings",
+      "schema": "",
+      "columns": {
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "privateProfile": {
+          "name": "privateProfile",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "allowConnectionRequests": {
+          "name": "allowConnectionRequests",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "agx_social_settings_user_fk": {
+          "name": "agx_social_settings_user_fk",
+          "tableFrom": "agronex_social_settings",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.agronex_wallet_entries": {
+      "name": "agronex_wallet_entries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "accountType": {
+          "name": "accountType",
+          "type": "agronex_wallet_entries_accountType_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "entryType": {
+          "name": "entryType",
+          "type": "agronex_wallet_entries_entryType_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "direction": {
+          "name": "direction",
+          "type": "agronex_wallet_entries_direction_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "paymentRequestId": {
+          "name": "paymentRequestId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payoutRequestId": {
+          "name": "payoutRequestId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "agx_wallet_payment_account_uq": {
+          "name": "agx_wallet_payment_account_uq",
+          "columns": [
+            {
+              "expression": "paymentRequestId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "accountType",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agx_wallet_payout_account_uq": {
+          "name": "agx_wallet_payout_account_uq",
+          "columns": [
+            {
+              "expression": "payoutRequestId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "accountType",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agx_wallet_user_time_idx": {
+          "name": "agx_wallet_user_time_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agronex_wallet_entries_userId_agronex_profiles_userId_fk": {
+          "name": "agronex_wallet_entries_userId_agronex_profiles_userId_fk",
+          "tableFrom": "agronex_wallet_entries",
+          "tableTo": "agronex_profiles",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "userId"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "agx_wallet_payment_fk": {
+          "name": "agx_wallet_payment_fk",
+          "tableFrom": "agronex_wallet_entries",
+          "tableTo": "agronex_payment_requests",
+          "columnsFrom": [
+            "paymentRequestId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "agx_wallet_payout_fk": {
+          "name": "agx_wallet_payout_fk",
+          "tableFrom": "agronex_wallet_entries",
+          "tableTo": "agronex_payout_requests",
+          "columnsFrom": [
+            "payoutRequestId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "openId": {
+          "name": "openId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "loginMethod": {
+          "name": "loginMethod",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "users_role_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'user'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "lastSignedIn": {
+          "name": "lastSignedIn",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_openId_unique": {
+          "name": "users_openId_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "openId"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.agronex_connection_requests_status_enum": {
+      "name": "agronex_connection_requests_status_enum",
+      "schema": "public",
+      "values": [
+        "pending",
+        "accepted",
+        "declined"
+      ]
+    },
+    "public.agronex_orders_paymentStatus_enum": {
+      "name": "agronex_orders_paymentStatus_enum",
+      "schema": "public",
+      "values": [
+        "pending",
+        "awaiting_payment",
+        "payout_pending",
+        "approved",
+        "rejected",
+        "refund_required",
+        "refunded"
+      ]
+    },
+    "public.agronex_orders_status_enum": {
+      "name": "agronex_orders_status_enum",
+      "schema": "public",
+      "values": [
+        "a_transporter",
+        "en_transport",
+        "livree",
+        "annulee"
+      ]
+    },
+    "public.agronex_payment_requests_farmerPayoutProvider_enum": {
+      "name": "agronex_payment_requests_farmerPayoutProvider_enum",
+      "schema": "public",
+      "values": [
+        "mpesa",
+        "airtel"
+      ]
+    },
+    "public.agronex_payment_requests_paymentMethod_enum": {
+      "name": "agronex_payment_requests_paymentMethod_enum",
+      "schema": "public",
+      "values": [
+        "manual"
+      ]
+    },
+    "public.agronex_payment_requests_provider_enum": {
+      "name": "agronex_payment_requests_provider_enum",
+      "schema": "public",
+      "values": [
+        "orange",
+        "airtel",
+        "afrimoney",
+        "mpesa"
+      ]
+    },
+    "public.agronex_payment_requests_status_enum": {
+      "name": "agronex_payment_requests_status_enum",
+      "schema": "public",
+      "values": [
+        "pending",
+        "awaiting_payment",
+        "payout_pending",
+        "approved",
+        "rejected",
+        "refund_required",
+        "refunded"
+      ]
+    },
+    "public.agronex_payout_requests_method_enum": {
+      "name": "agronex_payout_requests_method_enum",
+      "schema": "public",
+      "values": [
+        "manual"
+      ]
+    },
+    "public.agronex_payout_requests_provider_enum": {
+      "name": "agronex_payout_requests_provider_enum",
+      "schema": "public",
+      "values": [
+        "orange",
+        "airtel",
+        "afrimoney",
+        "mpesa"
+      ]
+    },
+    "public.agronex_payout_requests_status_enum": {
+      "name": "agronex_payout_requests_status_enum",
+      "schema": "public",
+      "values": [
+        "pending",
+        "paid",
+        "rejected"
+      ]
+    },
+    "public.agronex_posts_status_enum": {
+      "name": "agronex_posts_status_enum",
+      "schema": "public",
+      "values": [
+        "disponible",
+        "reserve"
+      ]
+    },
+    "public.agronex_profiles_payoutProvider_enum": {
+      "name": "agronex_profiles_payoutProvider_enum",
+      "schema": "public",
+      "values": [
+        "orange",
+        "airtel",
+        "afrimoney",
+        "mpesa"
+      ]
+    },
+    "public.agronex_profiles_role_enum": {
+      "name": "agronex_profiles_role_enum",
+      "schema": "public",
+      "values": [
+        "agriculteur",
+        "acheteur",
+        "transporteur",
+        "investisseur"
+      ]
+    },
+    "public.agronex_social_notifications_kind_enum": {
+      "name": "agronex_social_notifications_kind_enum",
+      "schema": "public",
+      "values": [
+        "follow",
+        "connection",
+        "connection_accepted",
+        "like",
+        "comment",
+        "repost"
+      ]
+    },
+    "public.agronex_social_posts_kind_enum": {
+      "name": "agronex_social_posts_kind_enum",
+      "schema": "public",
+      "values": [
+        "post",
+        "repost",
+        "quote"
+      ]
+    },
+    "public.agronex_social_posts_visibility_enum": {
+      "name": "agronex_social_posts_visibility_enum",
+      "schema": "public",
+      "values": [
+        "public",
+        "connections"
+      ]
+    },
+    "public.agronex_wallet_entries_accountType_enum": {
+      "name": "agronex_wallet_entries_accountType_enum",
+      "schema": "public",
+      "values": [
+        "farmer",
+        "platform"
+      ]
+    },
+    "public.agronex_wallet_entries_direction_enum": {
+      "name": "agronex_wallet_entries_direction_enum",
+      "schema": "public",
+      "values": [
+        "credit",
+        "debit"
+      ]
+    },
+    "public.agronex_wallet_entries_entryType_enum": {
+      "name": "agronex_wallet_entries_entryType_enum",
+      "schema": "public",
+      "values": [
+        "sale_credit",
+        "commission",
+        "payout"
+      ]
+    },
+    "public.users_role_enum": {
+      "name": "users_role_enum",
+      "schema": "public",
+      "values": [
+        "user",
+        "admin"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

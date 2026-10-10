@@ -1,0 +1,4 @@
+project_id = "qzvxygcdlxgamksjvfby"
+
+[functions.agronex-api]
+verify_jwt = false
